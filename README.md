@@ -22,7 +22,7 @@ Browser Use is a full-stack browser automation agent that can:
 
 ```
 Browser-Use/
-├── browser-use-agent/          # 🐍 Python Backend (DeepAgents)
+├── browser-use-agent/          # Python Backend (DeepAgents)
 │   ├── browser_use_agent/     # Core agent package
 │   │   ├── browser_agent.py   # Main agent + Ralph Mode
 │   │   ├── configuration.py   # Azure OpenAI config
@@ -34,7 +34,7 @@ Browser-Use/
 │   ├── server.py             # Optional FastAPI wrapper
 │   └── langgraph.json        # LangGraph config
 │
-├── deep-agents-ui/            # ⚛️ Next.js Frontend
+├── deep-agents-ui/            # Next.js Frontend
 │   ├── src/app/
 │   │   ├── components/       # UI components
 │   │   │   ├── ChatInterface.tsx
@@ -341,39 +341,6 @@ Inspired by [Anthropic's Claude](https://claude.ai/):
 - [LangGraph Docs](https://langchain-ai.github.io/langgraph/)
 - [Ralph Mode Example](https://github.com/langchain-ai/deepagents/tree/master/examples/ralph_mode)
 
-## 🧪 Testing
-
-### Backend Tests
-
-```bash
-cd browser-use-agent
-source .venv/bin/activate
-
-# Run unit tests
-pytest tests/
-
-# Test CLI
-python agent.py --task "Navigate to example.com"
-
-# Test Ralph Mode
-python agent.py --ralph --task "Test task" --iterations 3
-```
-
-### Frontend Tests
-
-```bash
-cd deep-agents-ui
-
-# Run tests
-yarn test
-
-# Type checking
-yarn tsc --noEmit
-
-# Linting
-yarn lint
-```
-
 ### Integration Testing
 
 1. Start backend: `langgraph dev --port 2024`
@@ -390,112 +357,6 @@ yarn lint
    - 3-panel layout responsiveness
    - Ralph mode configuration
    - Multi-step tasks
-
-## 🐛 Troubleshooting
-
-### Backend Issues
-
-**DeploymentNotFound Error**:
-```
-Error code: 404 - DeploymentNotFound
-```
-**Fix**: Update `.env` with correct `DEPLOYMENT_NAME` matching your Azure OpenAI deployment.
-
-**agent-browser Not Found**:
-```
-command not found: agent-browser
-```
-**Fix**: Install globally: `npm install -g agent-browser`
-
-**Port Already in Use**:
-```
-OSError: [Errno 48] Address already in use
-```
-**Fix**: Kill process on port: `lsof -i :2024 | grep LISTEN | awk '{print $2}' | xargs kill -9`
-
-### Frontend Issues
-
-**Can't Connect to Backend**:
-```
-Failed to fetch
-```
-**Fix**: 
-1. Verify backend is running: `curl http://127.0.0.1:2024/info`
-2. Check Deployment URL in settings
-3. Ensure CORS is configured
-
-**WebSocket Connection Failed**:
-```
-WebSocket connection to 'ws://localhost:9223' failed
-```
-**Fix**:
-1. Backend must start browser session first
-2. Check port availability: `lsof -i :9223`
-3. Verify backend `AGENT_BROWSER_STREAM_PORT` matches frontend `NEXT_PUBLIC_BROWSER_STREAM_PORT`
-4. Use reconnect button in browser panel
-5. Check browser panel configuration in settings
-
-**TypeScript Errors**:
-```
-Cannot find module...
-```
-**Fix**: Reinstall dependencies: `rm -rf node_modules && yarn install`
-
-## 🔐 Security Considerations
-
-- **API Keys**: Never commit `.env` files
-- **Approval Required**: Review all browser actions before approval
-- **CORS**: Configure backend CORS for production
-- **Rate Limiting**: Implement rate limits for production
-- **Input Validation**: Sanitize user input to agent
-
-## 🚦 Roadmap
-
-### Recently Completed ✅
-- [x] Waterfall thought process display
-- [x] Persistent resizable browser panel
-- [x] Environment variable configuration
-- [x] Ralph mode UI controls
-- [x] 3-panel responsive layout
-- [x] Claude-inspired aesthetic updates
-
-### Coming Soon
-- [ ] Multi-model support (Anthropic, OpenAI, etc.)
-- [ ] Custom skill/tool registration
-- [ ] Persistent memory with vector store
-- [ ] Browser input forwarding (mouse/keyboard)
-- [ ] Session recording and playback
-- [ ] Team collaboration features
-- [ ] Agent marketplace
-- [ ] Mobile-optimized UI
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit changes: `git commit -am 'Add feature'`
-4. Push to branch: `git push origin feature/my-feature`
-5. Open a Pull Request
-
-## 📄 License
-
-MIT License - See [LICENSE](./LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-- [LangChain](https://langchain.com/) for DeepAgents framework
-- [Vercel](https://vercel.com/) for agent-browser CLI
-- [Anthropic](https://anthropic.com/) for Claude UI inspiration
-- [shadcn/ui](https://ui.shadcn.com/) for beautiful components
-
-## 📧 Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
-- **Documentation**: See `docs/` folder
-
 ---
 
-Built with ❤️ using DeepAgents and agent-browser
+Built with using DeepAgents and agent-browser
