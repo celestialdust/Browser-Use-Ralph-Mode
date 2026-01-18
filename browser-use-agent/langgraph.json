@@ -1,4 +1,5 @@
 {
+  "dependencies": ["."],
   "graphs": {
     "browser-agent": "./browser_use_agent/browser_agent.py:graph"
   },

@@ -69,8 +69,17 @@ export interface BrowserCommand {
   requiresApproval: boolean;
 }
 
+export interface ThoughtStep {
+  id: string;
+  content: string;
+  level: number; // 0 = top-level, 1 = nested, etc.
+  status?: "streaming" | "complete";
+  children?: ThoughtStep[];
+}
+
 export interface ThoughtProcess {
   content: string;
   timestamp: number;
   isComplete: boolean;
+  steps?: ThoughtStep[]; // For waterfall/nested structure
 }

@@ -5,13 +5,11 @@ import { SubAgentIndicator } from "@/app/components/SubAgentIndicator";
 import { ToolCallBox } from "@/app/components/ToolCallBox";
 import { MarkdownContent } from "@/app/components/MarkdownContent";
 import { ThoughtProcess } from "@/app/components/ThoughtProcess";
-import { BrowserPreview } from "@/app/components/BrowserPreview";
 import type {
   SubAgent,
   ToolCall,
   ActionRequest,
   ReviewConfig,
-  BrowserSession,
   ThoughtProcess as ThoughtProcessType,
 } from "@/app/types/types";
 import { Message } from "@langchain/langgraph-sdk";
@@ -31,7 +29,6 @@ interface ChatMessageProps {
   stream?: any;
   onResumeInterrupt?: (value: any) => void;
   graphId?: string;
-  browserSession?: BrowserSession | null;
   currentThought?: ThoughtProcessType | null;
 }
 
@@ -46,18 +43,12 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     stream,
     onResumeInterrupt,
     graphId,
-    browserSession,
     currentThought,
   }) => {
     const isUser = message.type === "human";
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
     const hasToolCalls = toolCalls.length > 0;
-    
-    // Check if this message has browser tool calls
-    const hasBrowserToolCalls = toolCalls.some((tc) =>
-      tc.name.startsWith("browser_")
-    );
     const subAgents = useMemo(() => {
       return toolCalls
         .filter((toolCall: ToolCall) => {
@@ -170,13 +161,6 @@ export const ChatMessage = React.memo<ChatMessageProps>(
             </div>
           )}
           
-          {/* Browser Preview for messages with browser tool calls */}
-          {!isUser && hasBrowserToolCalls && browserSession && (
-            <BrowserPreview
-              streamUrl={browserSession.streamUrl}
-              isActive={browserSession.isActive}
-            />
-          )}
           {!isUser && subAgents.length > 0 && (
             <div className="flex w-fit max-w-full flex-col gap-4">
               {subAgents.map((subAgent) => (

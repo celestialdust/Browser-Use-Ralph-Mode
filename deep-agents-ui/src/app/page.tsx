@@ -7,21 +7,61 @@ import { ConfigDialog } from "@/app/components/ConfigDialog";
 import { Button } from "@/components/ui/button";
 import { Assistant } from "@langchain/langgraph-sdk";
 import { ClientProvider, useClient } from "@/providers/ClientProvider";
-import { Settings, MessagesSquare, SquarePen } from "lucide-react";
+import { Menu, PanelLeftClose } from "lucide-react";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ThreadList } from "@/app/components/ThreadList";
-import { ChatProvider } from "@/providers/ChatProvider";
+import { ChatProvider, useChatContext } from "@/providers/ChatProvider";
 import { ChatInterface } from "@/app/components/ChatInterface";
+import { BrowserPanel } from "@/app/components/BrowserPanel";
 
 interface HomePageInnerProps {
   config: StandaloneConfig;
   configDialogOpen: boolean;
   setConfigDialogOpen: (open: boolean) => void;
   handleSaveConfig: (config: StandaloneConfig) => void;
+}
+
+// Wrapper component to access chat context for browser panel
+function ChatWithBrowserPanel({ 
+  assistant, 
+  config 
+}: { 
+  assistant: Assistant | null;
+  config: StandaloneConfig;
+}) {
+  const { browserSession } = useChatContext();
+  
+  return (
+    <>
+      <ResizablePanel
+        id="chat"
+        className="relative flex flex-col"
+        order={2}
+        defaultSize={browserSession?.isActive ? 50 : 80}
+      >
+        <ChatInterface assistant={assistant} />
+      </ResizablePanel>
+      
+      {browserSession?.isActive && (
+        <>
+          <ResizableHandle />
+          <ResizablePanel
+            id="browser"
+            order={3}
+            defaultSize={30}
+            minSize={20}
+            maxSize={50}
+          >
+            <BrowserPanel browserSession={browserSession} />
+          </ResizablePanel>
+        </>
+      )}
+    </>
+  );
 }
 
 function HomePageInner({
@@ -37,6 +77,7 @@ function HomePageInner({
   const [mutateThreads, setMutateThreads] = useState<(() => void) | null>(null);
   const [interruptCount, setInterruptCount] = useState(0);
   const [assistant, setAssistant] = useState<Assistant | null>(null);
+  const [currentThreadTitle, setCurrentThreadTitle] = useState<string | null>(null);
 
   const fetchAssistant = useCallback(async () => {
     const isUUID =
@@ -102,6 +143,44 @@ function HomePageInner({
     fetchAssistant();
   }, [fetchAssistant]);
 
+  // Fetch current thread title
+  useEffect(() => {
+    if (threadId && client) {
+      client.threads
+        .get(threadId)
+        .then((thread) => {
+          // Get title from metadata or try to extract from first message
+          let title = thread.metadata?.title as string | undefined;
+          
+          if (!title && thread.values) {
+            // Try to get first message content
+            const values = thread.values as any;
+            if (values.messages && Array.isArray(values.messages) && values.messages.length > 0) {
+              const firstMessage = values.messages[0];
+              const content = typeof firstMessage.content === 'string' 
+                ? firstMessage.content 
+                : '';
+              
+              // Get first 30 words max
+              const words = content.trim().split(/\s+/);
+              const maxWords = 30;
+              title = words.slice(0, maxWords).join(' ');
+              if (words.length > maxWords) {
+                title += '...';
+              }
+            }
+          }
+          
+          setCurrentThreadTitle(title || "New Chat");
+        })
+        .catch(() => {
+          setCurrentThreadTitle("New Chat");
+        });
+    } else {
+      setCurrentThreadTitle(null);
+    }
+  }, [threadId, client]);
+
   return (
     <>
       <ConfigDialog
@@ -111,92 +190,81 @@ function HomePageInner({
         initialConfig={config}
       />
       <div className="flex h-screen flex-col">
-        <header className="flex h-16 items-center justify-between border-b border-border px-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold">Deep Agent UI</h1>
-            {!sidebar && (
+        <header className="flex h-14 items-center border-b border-border px-4">
+          <div className="flex items-center gap-3">
+            {sidebar ? (
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() => setSidebar("1")}
-                className="rounded-md border border-border bg-card p-3 text-foreground hover:bg-accent"
+                size="icon"
+                onClick={() => setSidebar(null)}
+                className="h-8 w-8"
+                aria-label="Close sidebar"
               >
-                <MessagesSquare className="mr-2 h-4 w-4" />
-                Threads
+                <PanelLeftClose className="h-5 w-5" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebar("1")}
+                className="h-8 w-8"
+                aria-label="Open sidebar"
+              >
+                <Menu className="h-5 w-5" />
                 {interruptCount > 0 && (
-                  <span className="ml-2 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] text-destructive-foreground">
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
                     {interruptCount}
                   </span>
                 )}
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium">Assistant:</span>{" "}
-              {config.assistantId}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfigDialogOpen(true)}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setThreadId(null)}
-              disabled={!threadId}
-              className="border-[#2F6868] bg-[#2F6868] text-white hover:bg-[#2F6868]/80"
-            >
-              <SquarePen className="mr-2 h-4 w-4" />
-              New Thread
-            </Button>
+          <div className="flex-1 text-center px-4">
+            <h1 className="text-sm font-semibold line-clamp-2">
+              {currentThreadTitle || "Deep Agent UI"}
+            </h1>
           </div>
+          <div className="w-8" />
         </header>
 
         <div className="flex-1 overflow-hidden">
-          <ResizablePanelGroup
-            direction="horizontal"
-            autoSaveId="standalone-chat"
+          <ChatProvider
+            activeAssistant={assistant}
+            onHistoryRevalidate={() => mutateThreads?.()}
+            recursionLimit={config.recursionLimit}
+            browserStreamPort={config.browserStreamPort}
           >
-            {sidebar && (
-              <>
-                <ResizablePanel
-                  id="thread-history"
-                  order={1}
-                  defaultSize={25}
-                  minSize={20}
-                  className="relative min-w-[380px]"
-                >
-                  <ThreadList
-                    onThreadSelect={async (id) => {
-                      await setThreadId(id);
-                    }}
-                    onMutateReady={(fn) => setMutateThreads(() => fn)}
-                    onClose={() => setSidebar(null)}
-                    onInterruptCountChange={setInterruptCount}
-                  />
-                </ResizablePanel>
-                <ResizableHandle />
-              </>
-            )}
-
-            <ResizablePanel
-              id="chat"
-              className="relative flex flex-col"
-              order={2}
+            <ResizablePanelGroup
+              direction="horizontal"
+              autoSaveId="standalone-chat-v2"
             >
-              <ChatProvider
-                activeAssistant={assistant}
-                onHistoryRevalidate={() => mutateThreads?.()}
-              >
-                <ChatInterface assistant={assistant} />
-              </ChatProvider>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+              {sidebar && (
+                <>
+                  <ResizablePanel
+                    id="thread-history"
+                    order={1}
+                    defaultSize={20}
+                    minSize={15}
+                    maxSize={30}
+                    className="relative min-w-[280px]"
+                  >
+                    <ThreadList
+                      onThreadSelect={async (id) => {
+                        await setThreadId(id);
+                      }}
+                      onMutateReady={(fn) => setMutateThreads(() => fn)}
+                      onInterruptCountChange={setInterruptCount}
+                      onNewThread={() => setThreadId(null)}
+                      onSettingsClick={() => setConfigDialogOpen(true)}
+                    />
+                  </ResizablePanel>
+                  <ResizableHandle />
+                </>
+              )}
+
+              <ChatWithBrowserPanel assistant={assistant} config={config} />
+            </ResizablePanelGroup>
+          </ChatProvider>
         </div>
       </div>
     </>

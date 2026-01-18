@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import {
   type Message,
@@ -32,13 +32,18 @@ export function useChat({
   activeAssistant,
   onHistoryRevalidate,
   thread,
+  recursionLimit = 200,
+  browserStreamPort = 9223,
 }: {
   activeAssistant: Assistant | null;
   onHistoryRevalidate?: () => void;
   thread?: UseStreamThread<StateType>;
+  recursionLimit?: number;
+  browserStreamPort?: number;
 }) {
   const [threadId, setThreadId] = useQueryState("threadId");
   const client = useClient();
+  const [browserSession, setBrowserSession] = useState<BrowserSession | null>(null);
 
   const stream = useStream<StateType>({
     assistantId: activeAssistant?.assistant_id || "",
@@ -56,6 +61,47 @@ export function useChat({
     experimental_thread: thread,
   });
 
+  // Detect browser tool calls and manage browser session state
+  useEffect(() => {
+    // Check if any recent messages contain browser tool calls
+    const messages = stream.messages || [];
+    const lastAiMessage = [...messages].reverse().find((m) => m.type === "ai");
+    
+    if (lastAiMessage) {
+      let toolCalls: any[] = [];
+      
+      if (Array.isArray(lastAiMessage.tool_calls)) {
+        toolCalls = lastAiMessage.tool_calls;
+      } else if (Array.isArray(lastAiMessage.additional_kwargs?.tool_calls)) {
+        toolCalls = lastAiMessage.additional_kwargs.tool_calls;
+      } else if (Array.isArray(lastAiMessage.content)) {
+        toolCalls = lastAiMessage.content.filter((b: any) => b.type === "tool_use");
+      }
+      
+      const hasBrowserNavigate = toolCalls.some((tc: any) => {
+        const name = tc.name || tc.function?.name || tc.type;
+        return name === "browser_navigate";
+      });
+      
+      const hasBrowserClose = toolCalls.some((tc: any) => {
+        const name = tc.name || tc.function?.name || tc.type;
+        return name === "browser_close";
+      });
+      
+      if (hasBrowserNavigate && threadId) {
+        // Browser session started
+        setBrowserSession({
+          sessionId: threadId,
+          streamUrl: `ws://localhost:${browserStreamPort}`,
+          isActive: true,
+        });
+      } else if (hasBrowserClose) {
+        // Browser session closed
+        setBrowserSession((prev) => prev ? { ...prev, isActive: false } : null);
+      }
+    }
+  }, [stream.messages, threadId, browserStreamPort]);
+
   const sendMessage = useCallback(
     (content: string) => {
       const newMessage: Message = { id: uuidv4(), type: "human", content };
@@ -65,13 +111,13 @@ export function useChat({
           optimisticValues: (prev) => ({
             messages: [...(prev.messages ?? []), newMessage],
           }),
-          config: { ...(activeAssistant?.config ?? {}), recursion_limit: 100 },
+          config: { ...(activeAssistant?.config ?? {}), recursion_limit: recursionLimit },
         }
       );
       // Update thread list immediately when sending a message
       onHistoryRevalidate?.();
     },
-    [stream, activeAssistant?.config, onHistoryRevalidate]
+    [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit]
   );
 
   const runSingleStep = useCallback(
@@ -117,7 +163,7 @@ export function useChat({
       stream.submit(undefined, {
         config: {
           ...(activeAssistant?.config || {}),
-          recursion_limit: 100,
+          recursion_limit: recursionLimit,
         },
         ...(hasTaskToolCall
           ? { interruptAfter: ["tools"] }
@@ -126,7 +172,7 @@ export function useChat({
       // Update thread list when continuing stream
       onHistoryRevalidate?.();
     },
-    [stream, activeAssistant?.config, onHistoryRevalidate]
+    [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit]
   );
 
   const markCurrentThreadAsResolved = useCallback(() => {
@@ -154,7 +200,7 @@ export function useChat({
     files: stream.values.files ?? {},
     email: stream.values.email,
     ui: stream.values.ui,
-    browserSession: stream.values.browser_session ?? null,
+    browserSession: browserSession ?? stream.values.browser_session ?? null,
     approvalQueue: stream.values.approval_queue ?? [],
     currentThought: stream.values.current_thought ?? null,
     setFiles,

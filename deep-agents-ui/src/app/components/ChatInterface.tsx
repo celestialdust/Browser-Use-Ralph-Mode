@@ -308,7 +308,6 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
                     stream={stream}
                     onResumeInterrupt={resumeInterrupt}
                     graphId={assistant?.graph_id}
-                    browserSession={isLastMessage ? browserSession : null}
                     currentThought={isLastMessage ? currentThought : null}
                   />
                 );

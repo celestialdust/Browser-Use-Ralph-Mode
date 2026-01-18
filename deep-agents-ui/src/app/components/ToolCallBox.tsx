@@ -194,7 +194,7 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
                           </button>
                           {expandedArgs[key] && (
                             <div className="border-t border-border bg-muted/20 p-2">
-                              <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs leading-6 text-foreground">
+                              <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground">
                                 {typeof value === "string"
                                   ? value
                                   : JSON.stringify(value, null, 2)}
@@ -211,7 +211,7 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
                     <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Result
                     </h4>
-                    <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 p-2 font-mono text-xs leading-7 text-foreground">
+                    <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words rounded-sm border border-border bg-muted/40 p-2 font-mono text-xs leading-7 text-foreground">
                       {typeof result === "string"
                         ? result
                         : JSON.stringify(result, null, 2)}

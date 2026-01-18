@@ -5,7 +5,11 @@ import os
 import subprocess
 from typing import Any, Dict, List, Optional
 from langchain.tools import tool
+from langchain_core.runnables import RunnableConfig
 from browser_use_agent.utils import stream_manager
+
+# Global storage for browser session state (thread-safe using dict keyed by thread_id)
+_browser_sessions: Dict[str, Dict[str, Any]] = {}
 
 
 def _run_browser_command(
@@ -60,6 +64,33 @@ def _run_browser_command(
         }
 
 
+def _update_browser_session(thread_id: str, is_active: bool = True):
+    """Update browser session state for the thread.
+    
+    Args:
+        thread_id: Thread identifier
+        is_active: Whether the session is active
+    """
+    stream_url = stream_manager.get_stream_url(thread_id) if is_active else None
+    _browser_sessions[thread_id] = {
+        "sessionId": thread_id,
+        "streamUrl": stream_url,
+        "isActive": is_active
+    }
+
+
+def get_browser_session(thread_id: str) -> Optional[Dict[str, Any]]:
+    """Get browser session state for a thread.
+    
+    Args:
+        thread_id: Thread identifier
+        
+    Returns:
+        Browser session dict or None
+    """
+    return _browser_sessions.get(thread_id)
+
+
 @tool
 def browser_navigate(url: str, thread_id: str) -> str:
     """Navigate browser to a URL and start streaming.
@@ -80,6 +111,8 @@ def browser_navigate(url: str, thread_id: str) -> str:
     
     if result["success"]:
         stream_url = stream_manager.get_stream_url(thread_id)
+        # Mark session as active
+        _update_browser_session(thread_id, is_active=True)
         return f"Successfully navigated to {url}. Browser stream available at {stream_url}"
     else:
         return f"Failed to navigate: {result['error']}"
@@ -312,6 +345,9 @@ def browser_close(thread_id: str) -> str:
     
     # Release the stream port
     stream_manager.release_port(thread_id)
+    
+    # Mark session as inactive
+    _update_browser_session(thread_id, is_active=False)
     
     if result["success"]:
         return "Browser session closed successfully"
