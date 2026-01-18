@@ -2,6 +2,7 @@
 
 import json
 import os
+import socket
 import subprocess
 import threading
 import time
@@ -181,6 +182,43 @@ def _stop_cleanup_thread():
     _cleanup_running = False
 
 
+def _wait_for_stream_ready(port: int, timeout_seconds: int = 5, check_interval: float = 0.1) -> bool:
+    """Wait for WebSocket stream server to be ready.
+    
+    Args:
+        port: Port number to check
+        timeout_seconds: Maximum time to wait
+        check_interval: Time between checks in seconds
+        
+    Returns:
+        bool: True if stream is ready, False if timeout
+    """
+    start_time = time.time()
+    attempts = 0
+    
+    while time.time() - start_time < timeout_seconds:
+        attempts += 1
+        try:
+            # Try to connect to the port
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            result = sock.connect_ex(('localhost', port))
+            sock.close()
+            
+            if result == 0:
+                # Port is open and accepting connections
+                elapsed = time.time() - start_time
+                print(f"[Stream Ready] Port {port} ready after {elapsed:.2f}s ({attempts} attempts)")
+                return True
+        except Exception as e:
+            pass
+        
+        time.sleep(check_interval)
+    
+    print(f"[Stream Timeout] Port {port} not ready after {timeout_seconds}s")
+    return False
+
+
 @tool
 def browser_navigate(url: str, thread_id: str) -> str:
     """Navigate browser to a URL and start streaming.
@@ -204,6 +242,14 @@ def browser_navigate(url: str, thread_id: str) -> str:
     
     if result["success"]:
         stream_url = stream_manager.get_stream_url(thread_id)
+        
+        # Wait for stream server to be ready before returning
+        port = stream_manager.get_port_for_thread(thread_id)
+        stream_ready = _wait_for_stream_ready(port, timeout_seconds=5)
+        
+        if not stream_ready:
+            print(f"[Browser Navigate] Warning: Stream server not ready within timeout, but navigation succeeded")
+        
         # Mark session as active and update last activity
         _update_browser_session(thread_id, is_active=True, update_last_activity=True)
         print(f"[Browser Navigate] Session {thread_id[:8]}... → Stream: {stream_url}")
@@ -436,6 +482,139 @@ def browser_wait(thread_id: str, condition: str, value: str) -> str:
 
 
 @tool
+def browser_set_viewport(width: int, height: int, thread_id: str) -> str:
+    """Set browser viewport size to mimic real desktop/mobile devices.
+    
+    CRITICAL for avoiding bot detection - headless browsers have unusual viewport sizes.
+    Recommended: 1920x1080 for desktop, 390x844 for mobile.
+    
+    Args:
+        width: Viewport width in pixels (e.g., 1920, 1366, 1280)
+        height: Viewport height in pixels (e.g., 1080, 768, 720)
+        thread_id: Thread identifier for session isolation
+        
+    Returns:
+        str: Success or error message
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["set", "viewport", str(width), str(height)])
+    
+    if result["success"]:
+        return f"Successfully set viewport to {width}x{height}"
+    else:
+        return f"Failed to set viewport: {result['error']}"
+
+
+@tool
+def browser_set_headers(headers_json: str, thread_id: str) -> str:
+    """Set custom HTTP headers including User-Agent.
+    
+    CRITICAL for bypassing user-agent detection. Most sites check for realistic Chrome/Firefox user agents.
+    
+    Args:
+        headers_json: JSON string of headers 
+                     e.g., '{"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}'
+        thread_id: Thread identifier for session isolation
+        
+    Returns:
+        str: Success or error message
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["set", "headers", headers_json])
+    
+    if result["success"]:
+        return "Successfully set custom headers"
+    else:
+        return f"Failed to set headers: {result['error']}"
+
+
+@tool
+def browser_cookies_get(thread_id: str) -> str:
+    """Get all cookies from current page. Save these to restore sessions later and avoid re-triggering CAPTCHA.
+    
+    Use this after successful interactions to save session state.
+    
+    Args:
+        thread_id: Thread identifier for session isolation
+        
+    Returns:
+        str: JSON array of cookie objects
+    """
+    result = _run_browser_command(thread_id, ["cookies", "get", "--json"])
+    
+    if result["success"]:
+        return result["output"]
+    else:
+        return f"Failed to get cookies: {result['error']}"
+
+
+@tool
+def browser_cookies_set(cookies_json: str, thread_id: str) -> str:
+    """Set cookies for the current domain. Use to restore sessions and avoid repeated CAPTCHAs.
+    
+    CRITICAL for session persistence. Once CAPTCHA is solved, save cookies and reuse them.
+    
+    Args:
+        cookies_json: JSON string of cookie array 
+                     e.g., '[{"name":"session","value":"abc123","domain":".example.com"}]'
+        thread_id: Thread identifier for session isolation
+        
+    Returns:
+        str: Success or error message
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["cookies", "set", cookies_json])
+    
+    if result["success"]:
+        return "Successfully set cookies"
+    else:
+        return f"Failed to set cookies: {result['error']}"
+
+
+@tool
+def browser_wait_time(milliseconds: int, thread_id: str) -> str:
+    """Wait for specified time. Add human-like delays between actions.
+    
+    IMPORTANT: Bot detection often checks action speed. Add 500-2000ms delays between major actions.
+    
+    Args:
+        milliseconds: Time to wait in ms (recommend 500-2000ms between actions)
+        thread_id: Thread identifier for session isolation
+        
+    Returns:
+        str: Success message
+    """
+    result = _run_browser_command(thread_id, ["wait", str(milliseconds)])
+    
+    if result["success"]:
+        return f"Waited {milliseconds}ms"
+    else:
+        return f"Wait failed: {result['error']}"
+
+
+@tool
+def browser_hover(ref: str, thread_id: str) -> str:
+    """Hover over an element before clicking (human-like behavior).
+    
+    More human-like than direct clicks. Some sites track mouse movement patterns.
+    
+    Args:
+        ref: Element reference from snapshot (e.g., "@e1")
+        thread_id: Thread identifier for session isolation
+        
+    Returns:
+        str: Success or error message
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["hover", ref])
+    
+    if result["success"]:
+        return f"Successfully hovered over {ref}"
+    else:
+        return f"Failed to hover: {result['error']}"
+
+
+@tool
 def browser_close(thread_id: str) -> str:
     """Close the browser session and stop streaming.
     
@@ -472,5 +651,11 @@ BROWSER_TOOLS = [
     browser_is_visible,
     browser_is_enabled,
     browser_wait,
+    browser_set_viewport,
+    browser_set_headers,
+    browser_cookies_get,
+    browser_cookies_set,
+    browser_wait_time,
+    browser_hover,
     browser_close,
 ]

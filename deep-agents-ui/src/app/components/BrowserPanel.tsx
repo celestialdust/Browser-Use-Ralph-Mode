@@ -124,6 +124,7 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
           console.log("Browser stream connected");
           setConnectionStatus((prev) => ({ ...prev, connected: true }));
           setConnectionError(null);
+          setReconnectAttempts(0); // Reset attempts on successful connection
           hasConnectedOnceRef.current = true;
         };
 
@@ -168,7 +169,7 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
             // Attempt to reconnect if still active and haven't exceeded max attempts
             if (currentIsActive && currentStreamUrl && currentAttempts < maxReconnectAttempts) {
               // Grace period for stream server startup - only log error after silent retries
-              const SILENT_RETRY_ATTEMPTS = 2;
+              const SILENT_RETRY_ATTEMPTS = 4; // Increased from 2 to give more time for backend readiness check
               
               // Only log error after grace period (stream server may still be starting)
               if (currentAttempts >= SILENT_RETRY_ATTEMPTS && !hasConnectedOnceRef.current && wasAbnormal) {
@@ -177,6 +178,9 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
                 setConnectionError(`Unable to connect to browser stream at ${currentStreamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
               } else if (hasConnectedOnceRef.current) {
                 console.log("WebSocket connection lost, attempting to reconnect...");
+              } else if (currentAttempts < SILENT_RETRY_ATTEMPTS) {
+                // Silent retry - don't log anything during grace period
+                console.log(`[BrowserPanel] Retry attempt ${currentAttempts + 1}/${SILENT_RETRY_ATTEMPTS} (silent grace period)`);
               }
               
               const backoffTime = Math.min(1000 * Math.pow(2, currentAttempts), 10000);
