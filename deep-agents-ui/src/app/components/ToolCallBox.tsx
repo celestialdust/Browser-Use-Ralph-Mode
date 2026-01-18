@@ -46,9 +46,29 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
     );
 
     const { name, args, result, status } = useMemo(() => {
+      // Parse args defensively to ensure it's always a proper object
+      let parsedArgs = toolCall.args || {};
+      
+      // If it's a string, try to parse it as JSON
+      if (typeof parsedArgs === 'string') {
+        try {
+          parsedArgs = JSON.parse(parsedArgs);
+        } catch {
+          // If parsing fails, wrap in an object
+          parsedArgs = { value: parsedArgs };
+        }
+      }
+      
+      // If it's an array, convert to object with meaningful keys
+      if (Array.isArray(parsedArgs)) {
+        parsedArgs = Object.fromEntries(
+          parsedArgs.map((val, idx) => [`arg_${idx}`, val])
+        );
+      }
+      
       return {
         name: toolCall.name || "Unknown Tool",
-        args: toolCall.args || {},
+        args: parsedArgs,
         result: toolCall.result,
         status: toolCall.status || "completed",
       };
@@ -169,41 +189,58 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
                     <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Arguments
                     </h4>
-                    <div className="space-y-2">
-                      {Object.entries(args).map(([key, value]) => (
-                        <div
-                          key={key}
-                          className="rounded-sm border border-border"
-                        >
-                          <button
-                            onClick={() => toggleArgExpanded(key)}
-                            className="flex w-full items-center justify-between bg-muted/30 p-2 text-left text-xs font-medium transition-colors hover:bg-muted/50"
+                    {(name.startsWith('browser_') || ['grep', 'read', 'write', 'delete', 'glob', 'ls', 'Grep', 'Read', 'Write', 'Delete', 'Glob', 'LS'].includes(name)) ? (
+                      // Simplified format for simple tools: "key: value"
+                      <div className="space-y-1">
+                        {Object.entries(args).map(([key, value]) => (
+                          <div key={key} className="text-sm">
+                            <span className="font-medium text-foreground">{key}:</span>{' '}
+                            <span className="text-muted-foreground">
+                              {typeof value === "string"
+                                ? value
+                                : JSON.stringify(value)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      // Expandable format for other tools
+                      <div className="space-y-2">
+                        {Object.entries(args).map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="rounded-sm border border-border"
                           >
-                            <span className="font-mono">{key}</span>
-                            {expandedArgs[key] ? (
-                              <ChevronUp
-                                size={12}
-                                className="text-muted-foreground"
-                              />
-                            ) : (
-                              <ChevronDown
-                                size={12}
-                                className="text-muted-foreground"
-                              />
+                            <button
+                              onClick={() => toggleArgExpanded(key)}
+                              className="flex w-full items-center justify-between bg-muted/30 p-2 text-left text-xs font-medium transition-colors hover:bg-muted/50"
+                            >
+                              <span className="font-mono">{key}</span>
+                              {expandedArgs[key] ? (
+                                <ChevronUp
+                                  size={12}
+                                  className="text-muted-foreground"
+                                />
+                              ) : (
+                                <ChevronDown
+                                  size={12}
+                                  className="text-muted-foreground"
+                                />
+                              )}
+                            </button>
+                            {expandedArgs[key] && (
+                              <div className="border-t border-border bg-muted/20 p-2">
+                                <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground">
+                                  {typeof value === "string"
+                                    ? value
+                                    : JSON.stringify(value, null, 2)}
+                                </pre>
+                              </div>
                             )}
-                          </button>
-                          {expandedArgs[key] && (
-                            <div className="border-t border-border bg-muted/20 p-2">
-                              <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground">
-                                {typeof value === "string"
-                                  ? value
-                                  : JSON.stringify(value, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {result && (

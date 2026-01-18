@@ -322,10 +322,13 @@ export function ThreadList({
                         aria-current={currentThreadId === thread.id}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                               <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                              <h3 className="truncate text-sm font-medium">
+                              <h3 
+                                className="truncate text-sm font-medium min-w-0 flex-1"
+                                title={thread.title}
+                              >
                                 {thread.title}
                               </h3>
                             </div>

@@ -28,13 +28,16 @@ class StreamManager:
             int: WebSocket port number for this thread
         """
         if thread_id in self._active_ports:
-            return self._active_ports[thread_id]
+            port = self._active_ports[thread_id]
+            print(f"[StreamManager] Reusing existing port {port} for thread {thread_id[:8]}...")
+            return port
         
-        # Calculate port based on thread ID hash
+        # Calculate port based on thread ID hash (deterministic)
         port_offset = int(hashlib.md5(thread_id.encode()).hexdigest(), 16) % self.max_offset
         port = self.base_port + port_offset
         
         self._active_ports[thread_id] = port
+        print(f"[StreamManager] Assigned port {port} to thread {thread_id[:8]}... (deterministic hash)")
         return port
     
     def get_stream_url(self, thread_id: str) -> str:
@@ -56,7 +59,9 @@ class StreamManager:
             thread_id: Unique thread identifier
         """
         if thread_id in self._active_ports:
+            port = self._active_ports[thread_id]
             del self._active_ports[thread_id]
+            print(f"[StreamManager] Released port {port} for thread {thread_id[:8]}... (will be reassigned same port if needed)")
     
     def is_active(self, thread_id: str) -> bool:
         """Check if a thread has an active stream.

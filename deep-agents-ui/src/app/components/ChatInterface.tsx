@@ -192,11 +192,24 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
               toolCall.name ||
               toolCall.type ||
               "unknown";
-            const args =
-              toolCall.function?.arguments ||
-              toolCall.args ||
-              toolCall.input ||
-              {};
+            
+            // Parse args properly, handling JSON strings
+            let args: any = toolCall.args || toolCall.input || {};
+            
+            // Handle function.arguments which may be a JSON string
+            if (toolCall.function?.arguments) {
+              if (typeof toolCall.function.arguments === 'string') {
+                try {
+                  args = JSON.parse(toolCall.function.arguments);
+                } catch {
+                  // If parsing fails, use as-is
+                  args = toolCall.function.arguments;
+                }
+              } else {
+                args = toolCall.function.arguments;
+              }
+            }
+            
             return {
               id: toolCall.id || `tool-${Math.random()}`,
               name,

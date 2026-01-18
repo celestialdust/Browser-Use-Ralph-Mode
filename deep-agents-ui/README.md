@@ -4,41 +4,121 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
 
 ## What's New (Latest Update)
 
-### Claude UI Complete Match 🎨
+### v4.1 - Browser Status Indicator & Error Fix 🚀
 
-The interface now matches Claude's design exactly:
+**Critical Fixes**:
 
-**Latest Changes** (v2.0):
+1. **🔧 Fixed False WebSocket Error Logs**
+   - Root cause: `hasConnectedOnce` state variable read stale values in WebSocket closures
+   - Solution: Replaced state with `useRef` for synchronous access to latest value
+   - Result: No more false "WebSocket connection failed" errors when streaming works
+   - Files: Both `BrowserPanel` and `BrowserPanelContent` components updated
+
+2. **🚦 Browser Status Indicator (Non-Interactive)**
+   - Monitor icon now purely a status indicator (not clickable)
+   - **Idle state**: Red icon, disabled (cursor-not-allowed)
+   - **Active state**: Green icon (browser session running)
+   - Browser panel auto-opens when session starts
+   - Browser panel auto-closes when session ends
+   - Users cannot manually toggle - it's fully automatic based on session state
+
+**Previous Features (v4.0)**:
+
+1. **🖥️ Always-Visible Browser Panel**
+
+1. **🖥️ Always-Visible Browser Monitor**
+   - Browser monitor icon **always visible** in the **top-right corner of header** (like Claude's file icon)
+   - **Header Integration**: Monitor icon lives in the header, not floating
+   - **Click to Toggle**: Click icon to expand/collapse browser panel
+   - **Smart States**:
+     - No session: Icon visible but panel shows "Browser is not working" message when expanded
+     - Active session: Green dot indicator appears on icon, panel auto-expands to show live browser stream
+     - Manual toggle: Click icon anytime to show/hide browser panel
+   - **Responsive Header**: Header layout adapts to sidebar and browser panel states
+   - **Responsive Layout**: Chat panel expands from 65% to 100% when browser panel closed
+
+2. **🔗 Stream URL Consistency Fix**
+   - Fixed critical bug where multiple browser tasks in same thread had different stream URLs
+   - **Root Cause**: Frontend was using **first** `browser_navigate` result instead of **latest**
+   - **Solution**: Now uses `[...messages].reverse().find()` to get most recent stream URL
+   - **Connection State Reset**: Properly resets reconnection state when stream URL changes
+   - **Same Thread = Same Port**: Backend uses deterministic hash (MD5) for consistent ports
+   - **Enhanced Logging**: Console logs show stream URL changes and extraction
+
+3. **⏱️ Automatic Browser Timeout** (Backend)
+   - Browser sessions automatically close after **5 minutes** of inactivity
+   - Background cleanup thread monitors all active sessions
+   - Prevents resource leaks from forgotten browser instances
+   - Activity tracking on all browser interaction tools (`browser_click`, `browser_fill`, etc.)
+   - Read-only tools (`browser_snapshot`) don't reset timeout
+
+4. **🔧 Improved Tool Call Display**
+   - Browser tools (`browser_navigate`, `browser_click`, etc.) now show simplified arguments
+   - Format: `argkey: value` instead of expandable JSON sections
+   - File system tools (`grep`, `read`, `write`, `ls`, `glob`) also use simplified format
+   - Non-browser tools keep expandable format for detailed inspection
+
+5. **🧠 Collapsible Thought Process**
+   - Thought process now shows intelligent summary when collapsed
+   - Summary extracts first meaningful sentence (up to 70 characters)
+   - Matches ToolCallBox visual design with proper spacing and icons
+
+6. **📝 Thread Name Truncation**
+   - Thread names properly truncate with ellipsis when sidebar is resized
+   - Full name shown on hover with `title` attribute
+   - Responsive behavior across all sidebar widths
+
+**Backend Improvements**:
+- Session timeout management with configurable duration (default: **300s** / 5 minutes)
+- Deterministic port assignment per thread using MD5 hash
+- Last activity tracking for all browser operations
+- Daemon thread for automatic cleanup
+- Proper session state management with timestamps
+- Enhanced debugging with activity logs
+
+---
+
+### Previous Updates
+
+**v2.0 - Claude UI Complete Match**:
 - 📝 **Full title display** - Shows up to 30 words of chat title with ellipsis
 - 📏 **Multi-line title support** - Title can wrap to 2 lines using line-clamp-2
 - 🔧 **WebSocket error handling** - Better error messages for browser stream connection issues
 - ✅ **URL validation** - WebSocket connections validated before attempting to connect
 
-**Previous Changes** (v1.0):
+**v1.0 - Claude-Style Interface**:
 - 🔄 **Dynamic header** - Shows current chat title (like Claude)
 - 🍔 **Hamburger menu icon** - Toggle sidebar open/closed with Menu icon
 - ✕ **Close sidebar icon** - PanelLeftClose icon when sidebar is open
 - 📝 **Centered chat title** - Current thread name displayed in header center
 - 🎯 **Flexible layout** - Header adapts based on sidebar state
-
-**Previous Changes**:
-- ✨ **New chat button** moved to top of sidebar (from top-right header)
-- ⚙️ **Settings button** relocated to bottom left corner (from top-right header)
+- ✨ **New chat button** moved to top of sidebar
+- ⚙️ **Settings button** relocated to bottom left corner
 - 🧹 **Cleaner header** with just sidebar toggle and app title
 - 📋 **Recents section** with streamlined thread display
 - 💬 **Thread items** now show message icon and simplified layout
 - 🎯 **Consistent spacing** matching Claude's design language
 
-**Result**: Complete Claude UI replica with dynamic header and proper sidebar controls
-
 ---
 
 ## Features
 
+### Frontend Features
 - 🎨 **Claude-Style Aesthetic**: Clean, minimal design with Anthropic-inspired color palette and sidebar
-- 💬 **Multi-Thread Chat**: Create and manage multiple conversation threads
-- 🧠 **Waterfall Thought Process**: Nested, cascading display of agent's reasoning steps
-- 🌐 **Persistent Browser Panel**: Resizable right-side panel with live WebSocket streaming
+- 💬 **Multi-Thread Chat**: Create and manage multiple conversation threads with smart truncation
+- 🧠 **Collapsible Thought Process**: Nested display with intelligent summaries when collapsed
+- 🌐 **Always-Visible Browser Status Indicator**: Header-integrated status display
+  - **Header Icon**: Monitor icon always visible in top-right corner (Claude-style)
+  - **Red Icon (Idle)**: Shows when no browser session, disabled/not clickable
+  - **Green Icon (Active)**: Shows when browser session running
+  - **Status-Only**: Icon is purely visual indicator, not an interactive button
+  - **Smart Auto-Expand**: Panel automatically opens when browser session starts
+  - **Smart Auto-Collapse**: Panel automatically closes when session ends
+  - **Three-Column Header**: Left (sidebar toggle) | Center (thread title) | Right (status icon)
+  - **Centered Title**: Thread title centered in header with balanced spacing
+  - **Status Messages**: Shows "Browser is not working" when no active session
+  - **Live Streaming**: WebSocket-based real-time browser viewport when active
+  - **No False Errors**: Fixed closure issue causing false error logs
 - ✅ **Interactive Approvals**: Review and approve browser actions before execution
 - 📋 **Task Management**: Visual todo list showing agent's task breakdown
 - 📁 **File Viewer**: View and edit files created by the agent
@@ -46,6 +126,18 @@ The interface now matches Claude's design exactly:
 - ⚙️ **Ralph Mode Configuration**: Enable iterative refinement with configurable max iterations
 - 🔧 **Environment Variable Support**: Pre-configure settings via `.env.local`
 - 🎯 **Claude-Inspired Sidebar**: New chat button at top, settings at bottom, streamlined layout
+- 📝 **Smart Tool Display**: Browser/file tools show simplified `key: value` format, others expandable
+
+### Backend Features
+- ⏱️ **Automatic Browser Timeout**: Sessions auto-close after 5 minutes of inactivity
+- 🔗 **Consistent Stream URLs**: Same thread always gets same WebSocket port (deterministic hash)
+  - **No Port Spawning**: Multiple `browser_navigate` calls reuse same port
+  - **Cache-First Strategy**: Instant port lookup for active sessions
+  - **Hash-Based Assignment**: MD5(thread_id) ensures consistent ports even after timeout
+  - **Logging**: Verify port reuse with `[StreamManager]` console logs
+- 🔄 **Session Management**: Thread-safe browser session tracking with activity monitoring
+- 🧹 **Background Cleanup**: Daemon thread automatically closes inactive sessions
+- 📊 **Activity Tracking**: All browser interactions update last activity timestamp
 
 ## Tech Stack
 
@@ -238,36 +330,62 @@ When the agent wants to perform sensitive actions (click, fill, navigate), an ap
 - Taking screenshots
 - Checking element visibility
 
-### Viewing Agent's Thought Process (Waterfall Display)
+### Viewing Agent's Thought Process
 
-The agent's thinking appears in a collapsible section with nested structure:
+The agent's thinking appears in a collapsible section with intelligent summaries:
 
-- **Waterfall Pattern**: Hierarchical display of reasoning steps
+- **Smart Summaries**: When collapsed, shows first meaningful sentence (up to 70 characters)
+- **Waterfall Pattern**: Hierarchical display of reasoning steps when expanded
 - **Nested Steps**: Sub-tasks indented with visual indicators
-- **Expand/Collapse**: Click chevron to show/hide details
-- **Character Streaming**: Text streams in character-by-character
+- **Expand/Collapse**: Click anywhere on the thought header to toggle
+- **Character Streaming**: Text streams in character-by-character for active thoughts
 - **Step Hierarchy**: Numbered lists, bullet points, and indented sub-steps
 
-**Example Structure**:
+**Collapsed View**:
 ```
-[Thought Process] ▼
+🧠 Thought process   "Analyzing the request and identifying browser actions..."   ▼
+```
+
+**Expanded View**:
+```
+🧠 Thought process   ▲
 Let me analyze the request...
 ├─ Breaking down the task
 │  └─ Identifying browser actions
 └─ Planning navigation steps
 ```
 
-### Live Browser Preview (Persistent Panel)
+### Live Browser Preview (Header-Integrated Status Indicator)
 
-When the agent opens a browser session, a resizable panel appears on the right:
+The browser monitor is **always visible** as a status indicator with fully automatic panel management:
 
-- **Persistent Display**: Panel stays visible across messages
-- **Resizable**: Drag the handle to adjust panel width
-- **Live Streaming**: Real-time WebSocket viewport updates
-- **Connection Status**: Visual indicator (green dot = connected)
-- **Auto-Reconnect**: Exponential backoff with manual retry
-- **Session Info**: Display current browser session ID
-- **Fullscreen Mode**: Toggle for larger view
+**Header Icon (Status Indicator Only)**:
+1. **Idle State**: 🔴 Red monitor icon in top-right corner, disabled (not clickable, 50% opacity)
+2. **Active State**: 🟢 Green monitor icon when browser session running
+3. **Non-Interactive**: Icon is purely visual status, cannot be clicked
+4. **Always Visible**: Present in header at all times as status indicator
+
+**Panel Behavior (Fully Automatic)**:
+1. **Auto-Open**: Panel automatically appears (right side) when browser session starts
+2. **Auto-Close**: Panel automatically closes when session ends or thread changes
+3. **No Manual Control**: Users cannot manually toggle - it's 100% session-driven
+4. **Expanded - Not Working**: Shows "Browser is not working" message when no session
+5. **Expanded - Active**: Shows live browser stream when session running
+6. **Resizable**: Drag handle to adjust width (20-50%) when expanded
+
+**Features**:
+- **Always Visible**: Monitor icon always present in header (Claude-style)
+- **Status Colors**: Red = idle/disabled, Green = active session
+- **Smart Auto-Management**: Panel opens/closes automatically based on session state
+- **Responsive Header**: Header layout adapts to sidebar and panel states (not fixed width)
+- **Responsive Layout**: Chat panel expands from 65% to 100% when browser panel closed
+- **Resizable**: Drag handle to adjust panel width (20-50%) when expanded
+- **Live Streaming**: Real-time WebSocket viewport updates from browser
+- **Consistent URLs**: Same thread always uses same stream port (deterministic)
+- **Auto-Reconnect**: Exponential backoff with manual retry (up to 5 attempts)
+- **No False Errors**: Fixed closure issue - no more false "connection failed" logs
+- **Smart Error Messages**: Actionable troubleshooting steps for real connection issues
+- **Auto-Timeout**: Sessions automatically close after 5 minutes of inactivity (backend)
 
 ### Managing Threads
 
@@ -284,17 +402,23 @@ The UI follows Anthropic's Claude design philosophy with a faithful sidebar recr
 
 The interface now fully replicates Claude's design:
 
-**Header** (Dynamic with full title):
+**Header** (Three-column layout with centered title):
 ```
-┌──────────────────────────────────────────┐
-│ [☰]   Full Chat Title Up To 30 Words    │  ← Sidebar closed
-│       Can Wrap To Two Lines...           │
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ [☰]           Full Chat Title (Centered)           [🖥] │
+│                  Can Wrap To Two Lines...               │
+└─────────────────────────────────────────────────────────┘
 
-┌──────────────────────────────────────────┐
-│ [⟨]   Full Chat Title Up To 30 Words    │  ← Sidebar open
-│       Can Wrap To Two Lines...           │
-└──────────────────────────────────────────┘
+Left: Sidebar toggle button (with notification badge for interrupts)
+Center: Thread title (centered, max 600px width, truncated with ellipsis)
+Right: Browser status icon (RED = idle/disabled, GREEN = active)
+```
+
+**Browser Status Icon Behavior**:
+- **Red (Idle)**: No browser session, icon disabled and not clickable
+- **Green (Active)**: Browser session running, but still not clickable
+- **Fully Automatic**: Panel opens/closes based on session state only
+- **No Manual Control**: Icon is a status indicator, not an interactive button
 ```
 
 **Sidebar**:
@@ -452,12 +576,62 @@ Manages chat state:
 
 If you see "WebSocket connection error - browser stream may not be running":
 
+**Root Cause**: The backend is not configured to stream browser viewport data via WebSocket.
+
+**Solution**: Set the `AGENT_BROWSER_STREAM_PORT` environment variable when starting the backend:
+
+```bash
+# Option 1: Set when starting the backend
+AGENT_BROWSER_STREAM_PORT=9223 langgraph dev --port 2024
+
+# Option 2: Add to backend .env file
+echo "AGENT_BROWSER_STREAM_PORT=9223" >> browser-use-agent/.env
+langgraph dev --port 2024
+```
+
+**Verification Steps**:
 1. **Ensure browser session is active**: The agent must have called `browser_navigate` to start a session
-2. **Check browser stream port**: Default is 9223, verify in Settings
-3. **Verify agent-browser CLI**: Make sure the browser automation backend is running
+2. **Check browser stream port matches**: 
+   - Frontend setting (default: 9223) in Settings dialog
+   - Backend `AGENT_BROWSER_STREAM_PORT` environment variable
+3. **Verify WebSocket server is running**: Check backend logs for streaming initialization
 4. **Check console logs**: Look for "Attempting to connect to browser stream: ws://localhost:XXXX"
 
-The browser panel will automatically attempt to reconnect with exponential backoff.
+The browser panel will automatically attempt to reconnect with exponential backoff (up to 5 attempts).
+
+### Browser Session Auto-Timeout
+
+**Feature**: Browser sessions automatically close after 60 seconds of inactivity to prevent resource leaks.
+
+**How It Works**:
+1. A background cleanup thread monitors all active browser sessions
+2. Each browser interaction (`browser_click`, `browser_fill`, `browser_type`, etc.) updates the last activity timestamp
+3. Sessions inactive for more than 60 seconds are automatically closed
+4. The cleanup thread checks every 10 seconds
+5. Session state is properly cleaned up on timeout
+
+**Activity Tracking**:
+- ✅ `browser_click` - Updates activity
+- ✅ `browser_fill` - Updates activity
+- ✅ `browser_type` - Updates activity
+- ✅ `browser_press_key` - Updates activity
+- ✅ `browser_navigate` - Updates activity (and resets timeout)
+- ❌ `browser_snapshot` - Read-only, does not update activity
+- ❌ `browser_screenshot` - Read-only, does not update activity
+
+**Configuration**:
+The timeout duration is configurable in `browser_use_agent/tools.py`:
+```python
+BROWSER_TIMEOUT_SECONDS = 60  # Default: 1 minute
+```
+
+**Logs**:
+Backend will log timeout events:
+```
+[Browser Timeout] Session thread-123 inactive for 62s
+[Browser Timeout] Auto-closing session thread-123
+[Browser Timeout] Session thread-123 closed successfully
+```
 
 ### Can't Connect to Backend
 
@@ -479,10 +653,32 @@ The browser panel will automatically attempt to reconnect with exponential backo
 4. Verify WebSocket port matches backend: `lsof -i :9223`
 
 **WebSocket Connection Failed**:
-1. Ensure `NEXT_PUBLIC_BROWSER_STREAM_PORT` matches backend
-2. Check firewall isn't blocking WebSocket connections
-3. Verify backend set `AGENT_BROWSER_STREAM_PORT` environment variable
-4. Try manual reconnect button in browser panel
+1. **Port mismatch**: Ensure frontend `NEXT_PUBLIC_BROWSER_STREAM_PORT` matches backend `AGENT_BROWSER_STREAM_PORT`
+2. **Backend not configured**: Set `AGENT_BROWSER_STREAM_PORT=9223` when starting backend (see above)
+3. **Firewall blocking**: Check firewall isn't blocking WebSocket connections on port 9223
+4. **Manual retry**: Use the "Try Again" button in the browser panel after reconfiguring the backend
+
+### Tool Call Arguments Display
+
+**Browser Tools** (simplified format):
+Browser-related tools show arguments in a clean `key: value` format:
+```
+browser_navigate
+  url: https://example.com
+  thread_id: thread-123
+```
+
+**Other Tools** (expandable format):
+Non-browser tools retain the expandable JSON format for detailed inspection:
+```
+custom_tool
+  ▼ complex_arg
+    { "nested": "data" }
+  ▼ another_arg
+    ["array", "values"]
+```
+
+This makes browser automation logs more readable while preserving detailed views for complex tools.
 
 ### Thought Process Not Streaming
 

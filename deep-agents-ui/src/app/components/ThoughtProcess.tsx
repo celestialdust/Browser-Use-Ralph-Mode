@@ -38,6 +38,34 @@ function streamText(
   return () => clearInterval(interval);
 }
 
+// Generate a concise summary from the thought content
+function generateSummary(content: string, maxLength: number = 70): string {
+  if (!content || content.trim() === "") {
+    return "Agent is thinking...";
+  }
+
+  // Clean up the content
+  const cleaned = content.trim();
+  
+  // Try to extract the first sentence
+  const sentenceMatch = cleaned.match(/^[^.!?]+[.!?]/);
+  if (sentenceMatch) {
+    const firstSentence = sentenceMatch[0].trim();
+    if (firstSentence.length <= maxLength) {
+      return firstSentence;
+    }
+    return firstSentence.slice(0, maxLength - 3) + "...";
+  }
+  
+  // If no sentence ending, take first line or truncate
+  const firstLine = cleaned.split("\n")[0];
+  if (firstLine.length <= maxLength) {
+    return firstLine + "...";
+  }
+  
+  return firstLine.slice(0, maxLength - 3) + "...";
+}
+
 // Parse content into steps if it contains numbered lists or bullet points
 function parseSteps(content: string): ThoughtStep[] {
   const lines = content.split("\n");
@@ -169,6 +197,7 @@ export function ThoughtProcess({
   const [displayedContent, setDisplayedContent] = useState("");
   const [streamComplete, setStreamComplete] = useState(!isStreaming);
   const [parsedSteps, setParsedSteps] = useState<ThoughtStep[]>([]);
+  const [summary, setSummary] = useState<string>("");
 
   useEffect(() => {
     if (isStreaming && content) {
@@ -177,6 +206,8 @@ export function ThoughtProcess({
         // Re-parse steps as content streams in
         const newSteps = parseSteps(text);
         setParsedSteps(newSteps);
+        // Update summary as content streams
+        setSummary(generateSummary(text));
       }, () => {
         setStreamComplete(true);
       });
@@ -184,6 +215,7 @@ export function ThoughtProcess({
     } else {
       setDisplayedContent(content);
       setStreamComplete(true);
+      setSummary(generateSummary(content));
       // Parse final content into steps
       if (steps) {
         setParsedSteps(steps);
@@ -217,21 +249,30 @@ export function ThoughtProcess({
         size="sm"
         onClick={toggleExpanded}
         className={cn(
-          "flex w-full items-center justify-between gap-2 border-none px-2 py-2 text-left shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          "flex w-full items-center justify-between gap-2 border-none px-2 py-2 text-left shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+          "cursor-pointer"
         )}
+        disabled={false}
       >
-        <div className="flex w-full items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Brain size={14} className="text-muted-foreground" />
             <span className="text-[15px] font-medium tracking-[-0.6px] text-foreground">
               Thought process
             </span>
           </div>
-          {expanded ? (
-            <ChevronUp size={14} className="shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+          {!expanded && summary && (
+            <span className="text-sm text-muted-foreground truncate flex-1 min-w-0">
+              {summary}
+            </span>
           )}
+          <div className="flex-shrink-0 ml-auto">
+            {expanded ? (
+              <ChevronUp size={14} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={14} className="text-muted-foreground" />
+            )}
+          </div>
         </div>
       </Button>
 

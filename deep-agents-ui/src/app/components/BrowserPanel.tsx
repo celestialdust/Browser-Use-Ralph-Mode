@@ -6,7 +6,8 @@ import type { BrowserSession } from "@/app/types/types";
 
 interface BrowserPanelProps {
   browserSession: BrowserSession | null;
-  onClose?: () => void;
+  isExpanded: boolean;
+  onToggleExpand: (expanded: boolean) => void;
 }
 
 interface FrameMessage {
@@ -32,7 +33,7 @@ interface StatusMessage {
 
 type WebSocketMessage = FrameMessage | StatusMessage;
 
-export function BrowserPanel({ browserSession, onClose }: BrowserPanelProps) {
+export function BrowserPanel({ browserSession, isExpanded, onToggleExpand }: BrowserPanelProps) {
   const [imageSrc, setImageSrc] = useState<string>("");
   const [connectionStatus, setConnectionStatus] = useState<{
     connected: boolean;
@@ -42,14 +43,28 @@ export function BrowserPanel({ browserSession, onClose }: BrowserPanelProps) {
     width: number;
     height: number;
   }>({ width: 0, height: 0 });
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const hasConnectedOnceRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const maxReconnectAttempts = 5;
 
   const streamUrl = browserSession?.streamUrl;
   const isActive = browserSession?.isActive ?? false;
+
+  // Auto-expand when browser session becomes active
+  useEffect(() => {
+    if (isActive && streamUrl && !isExpanded) {
+      onToggleExpand(true);
+    }
+  }, [isActive, streamUrl, isExpanded, onToggleExpand]);
+
+  // Reset connection state when streamUrl changes
+  useEffect(() => {
+    setReconnectAttempts(0);
+    hasConnectedOnceRef.current = false;
+  }, [streamUrl]);
 
   useEffect(() => {
     if (!streamUrl || !isActive) {
@@ -79,6 +94,8 @@ export function BrowserPanel({ browserSession, onClose }: BrowserPanelProps) {
           console.log("Browser stream connected successfully");
           setConnectionStatus((prev) => ({ ...prev, connected: true }));
           setReconnectAttempts(0);
+          setConnectionError(null);
+          hasConnectedOnceRef.current = true;
         };
 
         ws.onmessage = (event) => {
@@ -113,24 +130,46 @@ export function BrowserPanel({ browserSession, onClose }: BrowserPanelProps) {
         };
 
         ws.onerror = (event) => {
-          console.error("WebSocket connection error - browser stream may not be running");
-          console.log("Stream URL:", streamUrl);
-          console.log("Make sure the browser session is active and streaming");
+          // WebSocket onerror fires during normal connection handshake
+          // Only handle errors in onclose where we have more context
         };
 
-        ws.onclose = () => {
-          console.log("Browser stream disconnected");
+        ws.onclose = (event) => {
           setConnectionStatus({ connected: false, screencasting: false });
-
-          // Attempt to reconnect if still active and haven't exceeded max attempts
-          if (isActive && streamUrl && reconnectAttempts < maxReconnectAttempts) {
-            const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
-            reconnectTimeoutRef.current = setTimeout(() => {
-              console.log(`Attempting to reconnect... (attempt ${reconnectAttempts + 1})`);
-              setReconnectAttempts((prev) => prev + 1);
-              connectWebSocket();
-            }, backoffTime);
-          }
+          
+          // Check if this was an abnormal closure (not a clean disconnect)
+          const wasAbnormal = event.code !== 1000 && event.code !== 1001;
+          
+          setReconnectAttempts((currentAttempts) => {
+            // Attempt to reconnect if still active and haven't exceeded max attempts
+            if (isActive && streamUrl && currentAttempts < maxReconnectAttempts) {
+              // Only log initial connection failure if we never connected
+              if (currentAttempts === 0 && !hasConnectedOnceRef.current && wasAbnormal) {
+                console.error("WebSocket connection failed - browser stream may not be running");
+                const port = streamUrl.match(/:(\d+)/)?.[1] || "9223";
+                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
+              } else if (hasConnectedOnceRef.current) {
+                console.log("WebSocket connection lost, attempting to reconnect...");
+              }
+              
+              const backoffTime = Math.min(1000 * Math.pow(2, currentAttempts), 10000);
+              reconnectTimeoutRef.current = setTimeout(() => {
+                connectWebSocket();
+              }, backoffTime);
+              
+              return currentAttempts + 1;
+            } else if (currentAttempts >= maxReconnectAttempts) {
+              if (hasConnectedOnceRef.current) {
+                console.log("Browser session ended (possibly due to inactivity timeout)");
+                setConnectionError("Browser session ended. The session may have timed out due to inactivity.");
+              } else {
+                console.error("Failed to connect to browser stream after multiple attempts");
+                const port = streamUrl.match(/:(\d+)/)?.[1] || "9223";
+                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
+              }
+            }
+            return currentAttempts;
+          });
         };
       } catch (error) {
         console.error("Failed to connect to browser stream:", error);
@@ -153,121 +192,229 @@ export function BrowserPanel({ browserSession, onClose }: BrowserPanelProps) {
 
   const handleReconnect = () => {
     setReconnectAttempts(0);
+    setConnectionError(null);
+    hasConnectedOnceRef.current = false;
     if (wsRef.current) {
       wsRef.current.close();
     }
   };
 
-  if (!isActive || !streamUrl) {
-    return null;
-  }
+  // This component handles WebSocket connection only
+  // UI is rendered separately via BrowserPanelContent
+  return null;
+}
+
+// Separate component for expanded browser panel content
+export function BrowserPanelContent({ browserSession }: { browserSession: BrowserSession | null }) {
+  const [imageSrc, setImageSrc] = useState<string>("");
+  const [connectionStatus, setConnectionStatus] = useState<{
+    connected: boolean;
+    screencasting: boolean;
+  }>({ connected: false, screencasting: false });
+  const [viewport, setViewport] = useState<{
+    width: number;
+    height: number;
+  }>({ width: 0, height: 0 });
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const hasConnectedOnceRef = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const maxReconnectAttempts = 5;
+
+  const streamUrl = browserSession?.streamUrl;
+  const isActive = browserSession?.isActive ?? false;
+
+  // Reset connection state when streamUrl changes
+  useEffect(() => {
+    setReconnectAttempts(0);
+    hasConnectedOnceRef.current = false;
+  }, [streamUrl]);
+
+  useEffect(() => {
+    if (!streamUrl || !isActive) {
+      // Clean up connection if not active
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setConnectionStatus({ connected: false, screencasting: false });
+      setImageSrc("");
+      return;
+    }
+
+    const connectWebSocket = () => {
+      try {
+        const ws = new WebSocket(streamUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          console.log("Browser stream connected");
+          setConnectionStatus((prev) => ({ ...prev, connected: true }));
+          setConnectionError(null);
+          hasConnectedOnceRef.current = true;
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message: WebSocketMessage = JSON.parse(event.data);
+
+            if (message.type === "frame") {
+              setImageSrc(`data:image/jpeg;base64,${message.data}`);
+              setConnectionStatus((prev) => ({ ...prev, screencasting: true }));
+            } else if (message.type === "status") {
+              setConnectionStatus({
+                connected: message.connected,
+                screencasting: message.screencasting,
+              });
+              setViewport({
+                width: message.viewportWidth,
+                height: message.viewportHeight,
+              });
+            }
+          } catch (error) {
+            console.error("Failed to parse WebSocket message:", error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          // Only log errors if we're sure it's a problem (not during initial connection handshake)
+          // The onerror event fires during normal connection establishment, so we wait for onclose
+        };
+
+        ws.onclose = (event) => {
+          setConnectionStatus({ connected: false, screencasting: false });
+          
+          // Check if this was an abnormal closure (not a clean disconnect)
+          const wasAbnormal = event.code !== 1000 && event.code !== 1001;
+          
+          setReconnectAttempts((currentAttempts) => {
+            // Attempt to reconnect if still active and haven't exceeded max attempts
+            if (isActive && streamUrl && currentAttempts < maxReconnectAttempts) {
+              // Only log initial connection failure if we never connected
+              if (currentAttempts === 0 && !hasConnectedOnceRef.current && wasAbnormal) {
+                console.error("WebSocket connection failed - browser stream may not be running");
+                const port = streamUrl.split(":").pop();
+                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
+              } else if (hasConnectedOnceRef.current) {
+                console.log("WebSocket connection lost, attempting to reconnect...");
+              }
+              
+              const backoffTime = Math.min(1000 * Math.pow(2, currentAttempts), 10000);
+              reconnectTimeoutRef.current = setTimeout(() => {
+                connectWebSocket();
+              }, backoffTime);
+              
+              return currentAttempts + 1;
+            } else if (currentAttempts >= maxReconnectAttempts) {
+              if (hasConnectedOnceRef.current) {
+                console.log("Browser session ended (possibly due to inactivity timeout)");
+                setConnectionError("Browser session ended. The session may have timed out due to inactivity.");
+              } else {
+                console.error("Failed to connect to browser stream after multiple attempts");
+                const port = streamUrl.split(":").pop();
+                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
+              }
+            }
+            return currentAttempts;
+          });
+        };
+      } catch (error) {
+        console.error("Failed to connect to browser stream:", error);
+      }
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [streamUrl, isActive]);
+
+  const handleReconnect = () => {
+    setReconnectAttempts(0);
+    setConnectionError(null);
+    hasConnectedOnceRef.current = false;
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+  };
 
   return (
-    <div
-      className={`flex flex-col h-full bg-background border-l border-border ${
-        isFullscreen ? "fixed inset-0 z-50" : ""
-      }`}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
-          <Monitor className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Browser Preview</span>
-          {connectionStatus.connected ? (
-            <>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <Wifi className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
-              </div>
-              {viewport.width > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {viewport.width} × {viewport.height}
-                </span>
-              )}
-            </>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <WifiOff className="w-3.5 h-3.5 text-red-600 dark:text-red-500" />
-              <span className="text-xs text-muted-foreground">Disconnected</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!connectionStatus.connected && reconnectAttempts < maxReconnectAttempts && (
-            <button
-              onClick={handleReconnect}
-              className="px-2 py-1 text-xs rounded hover:bg-accent transition-colors"
-              title="Reconnect"
-            >
-              Reconnect
-            </button>
-          )}
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 hover:bg-accent rounded transition-colors"
-            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-4 h-4" />
-            ) : (
-              <Maximize2 className="w-4 h-4" />
-            )}
-          </button>
-          {onClose && !isFullscreen && (
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-accent rounded transition-colors"
-              title="Close panel"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Browser Stream Display */}
-      <div className="flex-1 overflow-auto bg-muted">
-        {imageSrc ? (
-          <div className="flex items-center justify-center min-h-full p-4">
-            <img
-              src={imageSrc}
-              alt="Browser viewport"
-              className="max-w-full h-auto rounded border border-border shadow-lg"
-              style={{
-                imageRendering: "crisp-edges",
-              }}
-            />
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Monitor className="w-12 h-12 mb-4 opacity-50" />
-            <p className="text-sm">
-              {connectionStatus.connected
-                ? "Waiting for frames..."
-                : reconnectAttempts >= maxReconnectAttempts
-                ? "Connection failed"
-                : "Connecting to browser..."}
-            </p>
-            {reconnectAttempts >= maxReconnectAttempts && (
-              <button
-                onClick={handleReconnect}
-                className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-              >
-                Try Again
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Footer with session info */}
-      {browserSession?.sessionId && (
-        <div className="px-4 py-2 border-t border-border bg-card">
-          <p className="text-xs text-muted-foreground">
-            Session: <span className="font-mono">{browserSession.sessionId}</span>
+    <>
+      {!isActive || !streamUrl ? (
+        // No active session - show "not working" message
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground px-8">
+          <Monitor className="w-12 h-12 mb-4 opacity-30" />
+          <p className="text-sm text-center font-medium text-foreground mb-1">
+            Browser is not working
+          </p>
+          <p className="text-xs text-center text-muted-foreground">
+            No active browser session. Start a task that requires browser automation.
           </p>
         </div>
+      ) : imageSrc ? (
+        // Active session with frames
+        <div className="flex items-center justify-center min-h-full p-4 bg-muted">
+          <img
+            src={imageSrc}
+            alt="Browser viewport"
+            className="max-w-full h-auto rounded border border-border shadow-lg"
+            style={{
+              imageRendering: "crisp-edges",
+            }}
+          />
+        </div>
+      ) : (
+        // Active session but no frames yet
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground px-8 bg-muted">
+          <Monitor className="w-12 h-12 mb-4 opacity-50" />
+          <p className="text-sm text-center mb-2">
+            {connectionStatus.connected
+              ? "Waiting for frames..."
+              : reconnectAttempts >= maxReconnectAttempts
+              ? "Connection failed"
+              : "Connecting to browser..."}
+          </p>
+          {connectionError && reconnectAttempts >= maxReconnectAttempts && (
+            <div className="mt-4 p-4 max-w-lg bg-background/50 border border-border rounded-lg text-left">
+              <p className="text-sm font-medium mb-3 text-foreground">
+                Browser Stream Configuration Issue
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                {connectionError}
+              </p>
+              <div className="text-xs space-y-2 text-muted-foreground">
+                <p className="font-medium text-foreground">To fix this:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Stop your backend server</li>
+                  <li>Restart with the stream port environment variable:</li>
+                </ol>
+                <pre className="mt-2 p-2 bg-card border border-border rounded text-xs overflow-x-auto">
+                  <code>AGENT_BROWSER_STREAM_PORT={streamUrl?.match(/:(\d+)/)?.[1] || "9223"} langgraph dev</code>
+                </pre>
+                <p className="mt-2">
+                  Or set it in your <code className="px-1 py-0.5 bg-card border border-border rounded">.env</code> file
+                </p>
+              </div>
+            </div>
+          )}
+          {reconnectAttempts >= maxReconnectAttempts && (
+            <button
+              onClick={handleReconnect}
+              className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+            >
+              Try Again
+            </button>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }

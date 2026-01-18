@@ -3,6 +3,9 @@
 import json
 import os
 import subprocess
+import threading
+import time
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from langchain.tools import tool
 from langchain_core.runnables import RunnableConfig
@@ -10,6 +13,13 @@ from browser_use_agent.utils import stream_manager
 
 # Global storage for browser session state (thread-safe using dict keyed by thread_id)
 _browser_sessions: Dict[str, Dict[str, Any]] = {}
+
+# Timeout configuration (in seconds)
+BROWSER_TIMEOUT_SECONDS = 300  # 5 minutes
+
+# Background cleanup thread
+_cleanup_thread: Optional[threading.Thread] = None
+_cleanup_running = False
 
 
 def _run_browser_command(
@@ -64,19 +74,29 @@ def _run_browser_command(
         }
 
 
-def _update_browser_session(thread_id: str, is_active: bool = True):
+def _update_browser_session(thread_id: str, is_active: bool = True, update_last_activity: bool = True):
     """Update browser session state for the thread.
     
     Args:
         thread_id: Thread identifier
         is_active: Whether the session is active
+        update_last_activity: Whether to update the last activity timestamp
     """
     stream_url = stream_manager.get_stream_url(thread_id) if is_active else None
-    _browser_sessions[thread_id] = {
+    
+    session_data = {
         "sessionId": thread_id,
         "streamUrl": stream_url,
         "isActive": is_active
     }
+    
+    if update_last_activity and is_active:
+        session_data["lastActivity"] = datetime.now()
+    elif thread_id in _browser_sessions and "lastActivity" in _browser_sessions[thread_id]:
+        # Preserve existing last activity if not updating
+        session_data["lastActivity"] = _browser_sessions[thread_id]["lastActivity"]
+    
+    _browser_sessions[thread_id] = session_data
 
 
 def get_browser_session(thread_id: str) -> Optional[Dict[str, Any]]:
@@ -86,9 +106,79 @@ def get_browser_session(thread_id: str) -> Optional[Dict[str, Any]]:
         thread_id: Thread identifier
         
     Returns:
-        Browser session dict or None
+        Browser session dict or None (without lastActivity timestamp)
     """
-    return _browser_sessions.get(thread_id)
+    session = _browser_sessions.get(thread_id)
+    if session:
+        # Return copy without lastActivity (internal field)
+        return {
+            "sessionId": session["sessionId"],
+            "streamUrl": session["streamUrl"],
+            "isActive": session["isActive"]
+        }
+    return None
+
+
+def _cleanup_inactive_sessions():
+    """Background task to close inactive browser sessions."""
+    global _cleanup_running
+    _cleanup_running = True
+    
+    print("[Browser Timeout] Cleanup thread started")
+    
+    while _cleanup_running:
+        try:
+            now = datetime.now()
+            inactive_threads = []
+            
+            # Find inactive sessions
+            for thread_id, session in list(_browser_sessions.items()):
+                if not session.get("isActive", False):
+                    continue
+                    
+                last_activity = session.get("lastActivity")
+                if last_activity:
+                    inactive_duration = now - last_activity
+                    if inactive_duration.total_seconds() > BROWSER_TIMEOUT_SECONDS:
+                        inactive_threads.append(thread_id)
+                        print(f"[Browser Timeout] Session {thread_id} inactive for {inactive_duration.total_seconds():.0f}s")
+            
+            # Close inactive sessions
+            for thread_id in inactive_threads:
+                print(f"[Browser Timeout] Auto-closing session {thread_id}")
+                result = _run_browser_command(thread_id, ["close"])
+                stream_manager.release_port(thread_id)
+                _update_browser_session(thread_id, is_active=False, update_last_activity=False)
+                
+                if result["success"]:
+                    print(f"[Browser Timeout] Session {thread_id} closed successfully")
+                else:
+                    print(f"[Browser Timeout] Failed to close session {thread_id}: {result.get('error')}")
+            
+            # Sleep for 10 seconds before next check
+            time.sleep(10)
+            
+        except Exception as e:
+            print(f"[Browser Timeout] Error in cleanup thread: {e}")
+            time.sleep(10)
+    
+    print("[Browser Timeout] Cleanup thread stopped")
+
+
+def _start_cleanup_thread():
+    """Start the background cleanup thread if not already running."""
+    global _cleanup_thread, _cleanup_running
+    
+    if _cleanup_thread is None or not _cleanup_thread.is_alive():
+        _cleanup_thread = threading.Thread(target=_cleanup_inactive_sessions, daemon=True)
+        _cleanup_thread.start()
+        print(f"[Browser Timeout] Started automatic session cleanup (timeout: {BROWSER_TIMEOUT_SECONDS}s)")
+
+
+def _stop_cleanup_thread():
+    """Stop the background cleanup thread."""
+    global _cleanup_running
+    _cleanup_running = False
 
 
 @tool
@@ -102,6 +192,9 @@ def browser_navigate(url: str, thread_id: str) -> str:
     Returns:
         str: Navigation result and stream URL
     """
+    # Start cleanup thread if not running
+    _start_cleanup_thread()
+    
     # This is usually the first command, so set stream port
     result = _run_browser_command(
         thread_id,
@@ -111,11 +204,18 @@ def browser_navigate(url: str, thread_id: str) -> str:
     
     if result["success"]:
         stream_url = stream_manager.get_stream_url(thread_id)
-        # Mark session as active
-        _update_browser_session(thread_id, is_active=True)
+        # Mark session as active and update last activity
+        _update_browser_session(thread_id, is_active=True, update_last_activity=True)
+        print(f"[Browser Navigate] Session {thread_id[:8]}... → Stream: {stream_url}")
         return f"Successfully navigated to {url}. Browser stream available at {stream_url}"
     else:
         return f"Failed to navigate: {result['error']}"
+
+
+def _update_activity(thread_id: str):
+    """Update last activity timestamp for a browser session."""
+    if thread_id in _browser_sessions and _browser_sessions[thread_id].get("isActive"):
+        _browser_sessions[thread_id]["lastActivity"] = datetime.now()
 
 
 @tool
@@ -157,6 +257,7 @@ def browser_click(ref: str, thread_id: str) -> str:
     Returns:
         str: Click result
     """
+    _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["click", ref])
     
     if result["success"]:
@@ -177,6 +278,7 @@ def browser_fill(ref: str, text: str, thread_id: str) -> str:
     Returns:
         str: Fill result
     """
+    _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["fill", ref, text])
     
     if result["success"]:
@@ -197,6 +299,7 @@ def browser_type(ref: str, text: str, thread_id: str) -> str:
     Returns:
         str: Type result
     """
+    _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["type", ref, text])
     
     if result["success"]:
@@ -216,6 +319,7 @@ def browser_press_key(key: str, thread_id: str) -> str:
     Returns:
         str: Key press result
     """
+    _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["press", key])
     
     if result["success"]:

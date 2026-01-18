@@ -63,7 +63,13 @@ export function useChat({
 
   // Detect browser tool calls and manage browser session state
   useEffect(() => {
-    // Check if any recent messages contain browser tool calls
+    // Prioritize backend-provided browser_session
+    if (stream.values.browser_session) {
+      setBrowserSession(stream.values.browser_session);
+      return;
+    }
+    
+    // Fallback: Check if any recent messages contain browser tool calls
     const messages = stream.messages || [];
     const lastAiMessage = [...messages].reverse().find((m) => m.type === "ai");
     
@@ -89,18 +95,42 @@ export function useChat({
       });
       
       if (hasBrowserNavigate && threadId) {
-        // Browser session started
-        setBrowserSession({
-          sessionId: threadId,
-          streamUrl: `ws://localhost:${browserStreamPort}`,
-          isActive: true,
+        // Extract actual stream URL from browser_navigate tool result
+        let streamUrl = `ws://localhost:${browserStreamPort}`; // Default fallback
+        
+        // Look for the MOST RECENT browser_navigate tool result message
+        // Use reverse to find the last occurrence, not the first
+        const navigateResult = [...messages].reverse().find((m: any) => 
+          m.type === "tool" && 
+          m.name === "browser_navigate"
+        );
+        
+        if (navigateResult && typeof navigateResult.content === 'string') {
+          const urlMatch = navigateResult.content.match(/Browser stream available at (ws:\/\/[^\s]+)/);
+          if (urlMatch && urlMatch[1]) {
+            streamUrl = urlMatch[1];
+            console.log("[Browser Session] Extracted stream URL from most recent browser_navigate:", streamUrl);
+          }
+        }
+        
+        // Browser session started with extracted or fallback URL
+        // Always update to ensure we're using the latest stream URL
+        setBrowserSession((prev) => {
+          if (prev && prev.streamUrl !== streamUrl) {
+            console.log("[Browser Session] Stream URL changed:", prev.streamUrl, "->", streamUrl);
+          }
+          return {
+            sessionId: threadId,
+            streamUrl: streamUrl,
+            isActive: true,
+          };
         });
       } else if (hasBrowserClose) {
         // Browser session closed
         setBrowserSession((prev) => prev ? { ...prev, isActive: false } : null);
       }
     }
-  }, [stream.messages, threadId, browserStreamPort]);
+  }, [stream.messages, stream.values.browser_session, threadId, browserStreamPort]);
 
   const sendMessage = useCallback(
     (content: string) => {

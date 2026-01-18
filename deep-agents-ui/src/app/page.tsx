@@ -7,7 +7,8 @@ import { ConfigDialog } from "@/app/components/ConfigDialog";
 import { Button } from "@/components/ui/button";
 import { Assistant } from "@langchain/langgraph-sdk";
 import { ClientProvider, useClient } from "@/providers/ClientProvider";
-import { Menu, PanelLeftClose } from "lucide-react";
+import { Menu, PanelLeftClose, Monitor, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -16,7 +17,7 @@ import {
 import { ThreadList } from "@/app/components/ThreadList";
 import { ChatProvider, useChatContext } from "@/providers/ChatProvider";
 import { ChatInterface } from "@/app/components/ChatInterface";
-import { BrowserPanel } from "@/app/components/BrowserPanel";
+import { BrowserPanel, BrowserPanelContent } from "@/app/components/BrowserPanel";
 
 interface HomePageInnerProps {
   config: StandaloneConfig;
@@ -25,15 +26,115 @@ interface HomePageInnerProps {
   handleSaveConfig: (config: StandaloneConfig) => void;
 }
 
+// Header component (without chat context access)
+function BrowserHeader({ 
+  sidebar, 
+  setSidebar, 
+  currentThreadTitle, 
+  interruptCount,
+  browserPanelExpanded,
+  setBrowserPanelExpanded,
+  hasBrowserSession
+}: { 
+  sidebar: string | null;
+  setSidebar: (value: string | null) => void;
+  currentThreadTitle: string;
+  interruptCount: number;
+  browserPanelExpanded: boolean;
+  setBrowserPanelExpanded: (value: boolean) => void;
+  hasBrowserSession: boolean;
+}) {
+  return (
+    <header className="flex h-14 items-center border-b border-border px-4">
+      {/* Left: Sidebar toggle */}
+      <div className="flex items-center gap-3 w-[200px] flex-shrink-0">
+        {sidebar ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebar(null)}
+            className="h-8 w-8"
+            aria-label="Close sidebar"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebar("1")}
+            className="h-8 w-8 relative"
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-5 w-5" />
+            {interruptCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
+                {interruptCount}
+              </span>
+            )}
+          </Button>
+        )}
+      </div>
+      
+      {/* Center: Thread title */}
+      <div className="flex-1 flex items-center justify-center px-4 min-w-0">
+        <h1 className="text-sm font-semibold line-clamp-2 truncate text-center max-w-[600px]">
+          {currentThreadTitle || "Deep Agent UI"}
+        </h1>
+      </div>
+      
+      {/* Right: Monitor icon - STATUS INDICATOR */}
+      <div className="flex items-center gap-3 w-[200px] flex-shrink-0 justify-end">
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={!hasBrowserSession}
+          className={cn(
+            "h-8 w-8 relative",
+            !hasBrowserSession && "cursor-not-allowed opacity-50"
+          )}
+          aria-label={hasBrowserSession ? "Browser active" : "Browser idle"}
+        >
+          <Monitor className={cn(
+            "h-5 w-5",
+            hasBrowserSession ? "text-green-600 dark:text-green-500" : "text-red-500 dark:text-red-400"
+          )} />
+        </Button>
+      </div>
+    </header>
+  );
+}
+
 // Wrapper component to access chat context for browser panel
 function ChatWithBrowserPanel({ 
   assistant, 
-  config 
+  config,
+  browserPanelExpanded,
+  setBrowserPanelExpanded,
+  onBrowserSessionChange
 }: { 
   assistant: Assistant | null;
   config: StandaloneConfig;
+  browserPanelExpanded: boolean;
+  setBrowserPanelExpanded: (value: boolean) => void;
+  onBrowserSessionChange: (hasSession: boolean) => void;
 }) {
   const { browserSession } = useChatContext();
+  
+  // Auto-expand when browser session becomes active, auto-collapse when inactive
+  React.useEffect(() => {
+    if (browserSession?.isActive && !browserPanelExpanded) {
+      setBrowserPanelExpanded(true);
+    } else if (!browserSession?.isActive && browserPanelExpanded) {
+      // Auto-collapse when browser session ends or thread changes to one without browser
+      setBrowserPanelExpanded(false);
+    }
+  }, [browserSession?.isActive, browserPanelExpanded, setBrowserPanelExpanded]);
+  
+  // Notify parent about browser session state
+  React.useEffect(() => {
+    onBrowserSessionChange(browserSession?.isActive ?? false);
+  }, [browserSession?.isActive, onBrowserSessionChange]);
   
   return (
     <>
@@ -41,22 +142,52 @@ function ChatWithBrowserPanel({
         id="chat"
         className="relative flex flex-col"
         order={2}
-        defaultSize={browserSession?.isActive ? 50 : 80}
+        defaultSize={browserPanelExpanded ? 65 : 100}
       >
         <ChatInterface assistant={assistant} />
+        <BrowserPanel 
+          browserSession={browserSession}
+          isExpanded={browserPanelExpanded}
+          onToggleExpand={setBrowserPanelExpanded}
+        />
       </ResizablePanel>
       
-      {browserSession?.isActive && (
+      {/* Show resizable browser panel only when expanded */}
+      {browserPanelExpanded && browserSession && (
         <>
           <ResizableHandle />
           <ResizablePanel
             id="browser"
             order={3}
-            defaultSize={30}
+            defaultSize={35}
             minSize={20}
             maxSize={50}
+            className="relative"
           >
-            <BrowserPanel browserSession={browserSession} />
+            <div className="flex flex-col h-full bg-background border-l border-border">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+                <div className="flex items-center gap-3">
+                  <Monitor className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Browser Preview</span>
+                  {browserSession?.isActive && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs text-muted-foreground">Active</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setBrowserPanelExpanded(false)}
+                  className="p-1.5 hover:bg-accent rounded transition-colors"
+                  title="Collapse to icon"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto">
+                <BrowserPanelContent browserSession={browserSession} />
+              </div>
+            </div>
           </ResizablePanel>
         </>
       )}
@@ -78,6 +209,8 @@ function HomePageInner({
   const [interruptCount, setInterruptCount] = useState(0);
   const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [currentThreadTitle, setCurrentThreadTitle] = useState<string | null>(null);
+  const [browserPanelExpanded, setBrowserPanelExpanded] = useState(false);
+  const [hasBrowserSession, setHasBrowserSession] = useState(false);
 
   const fetchAssistant = useCallback(async () => {
     const isUUID =
@@ -190,42 +323,15 @@ function HomePageInner({
         initialConfig={config}
       />
       <div className="flex h-screen flex-col">
-        <header className="flex h-14 items-center border-b border-border px-4">
-          <div className="flex items-center gap-3">
-            {sidebar ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebar(null)}
-                className="h-8 w-8"
-                aria-label="Close sidebar"
-              >
-                <PanelLeftClose className="h-5 w-5" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebar("1")}
-                className="h-8 w-8"
-                aria-label="Open sidebar"
-              >
-                <Menu className="h-5 w-5" />
-                {interruptCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                    {interruptCount}
-                  </span>
-                )}
-              </Button>
-            )}
-          </div>
-          <div className="flex-1 text-center px-4">
-            <h1 className="text-sm font-semibold line-clamp-2">
-              {currentThreadTitle || "Deep Agent UI"}
-            </h1>
-          </div>
-          <div className="w-8" />
-        </header>
+        <BrowserHeader 
+          sidebar={sidebar}
+          setSidebar={setSidebar}
+          currentThreadTitle={currentThreadTitle || "Deep Agent UI"}
+          interruptCount={interruptCount}
+          browserPanelExpanded={browserPanelExpanded}
+          setBrowserPanelExpanded={setBrowserPanelExpanded}
+          hasBrowserSession={hasBrowserSession}
+        />
 
         <div className="flex-1 overflow-hidden">
           <ChatProvider
@@ -262,7 +368,13 @@ function HomePageInner({
                 </>
               )}
 
-              <ChatWithBrowserPanel assistant={assistant} config={config} />
+              <ChatWithBrowserPanel 
+                assistant={assistant} 
+                config={config}
+                browserPanelExpanded={browserPanelExpanded}
+                setBrowserPanelExpanded={setBrowserPanelExpanded}
+                onBrowserSessionChange={setHasBrowserSession}
+              />
             </ResizablePanelGroup>
           </ChatProvider>
         </div>
