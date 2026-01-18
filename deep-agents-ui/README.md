@@ -4,15 +4,45 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
 
 ## What's New (Latest Update)
 
-### v4.1 - Browser Status Indicator & Error Fix 🚀
+### v4.2 - Fixed False WebSocket Error & Close Button 🎯
 
 **Critical Fixes**:
 
-1. **🔧 Fixed False WebSocket Error Logs**
-   - Root cause: `hasConnectedOnce` state variable read stale values in WebSocket closures
-   - Solution: Replaced state with `useRef` for synchronous access to latest value
-   - Result: No more false "WebSocket connection failed" errors when streaming works
-   - Files: Both `BrowserPanel` and `BrowserPanelContent` components updated
+1. **🔧 Eliminated False "Connection Failed" Errors**
+   - **Problem**: Error appeared immediately on first connection attempt, even though streaming worked after 1-2 seconds
+   - **Root Cause**: Stream server needs time to start up after backend returns session
+   - **Solution**: Added 2-attempt grace period before logging errors
+   - **Result**: No more misleading errors during normal operation
+   - Errors only appear after 2+ failed attempts (2+ seconds), indicating real issues
+
+**Connection Retry Behavior**:
+- Attempt 0 (0ms): Silent retry if fails (stream server may be starting)
+- Attempt 1 (1s): Silent retry if fails (typical case succeeds here)
+- Attempt 2+ (2s+): Log error if still failing (real configuration issue)
+
+2. **🔧 Fixed X Button to Close Browser Panel**
+   - **Problem**: Clicking X to close the panel would immediately reopen it
+   - **Root Cause**: Auto-expand logic was running on every render when session was active
+   - **Solution**: Only auto-expand when a NEW browser task starts (different streamUrl), not when session is still active
+   - **Result**: Users can now manually close the panel, and it stays closed until the next browser task
+
+**Panel Behavior**:
+- New browser task starts → Panel auto-opens
+- User clicks X → Panel closes and stays closed
+- Session ends (5min timeout) → Panel auto-closes
+- Next browser task starts → Panel auto-opens again
+
+### v4.1 - Browser Status Indicator & Streaming Optimization 🚀
+
+**Critical Fixes**:
+
+1. **🔧 Fixed Multiple Connection Issues**
+   - **Duplicate WebSocket Connections**: Removed duplicate WebSocket logic from `BrowserPanel`, consolidated to single connection in `BrowserPanelContent`
+   - **Stale Closure Values**: All props (`streamUrl`, `isActive`) now stored in refs for synchronous access in WebSocket handlers
+   - **Race Condition**: Removed `reconnectAttempts` from useEffect dependencies to prevent cleanup race
+   - **hasConnectedOnce Closure Bug**: Replaced state with `useRef` for immediate access
+   - **No Session End Cleanup**: Added explicit cleanup effect when `isActive` becomes false
+   - Result: Reliable streaming with no false errors or wasted reconnections
 
 2. **🚦 Browser Status Indicator (Non-Interactive)**
    - Monitor icon now purely a status indicator (not clickable)
@@ -21,6 +51,12 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
    - Browser panel auto-opens when session starts
    - Browser panel auto-closes when session ends
    - Users cannot manually toggle - it's fully automatic based on session state
+
+**Performance Improvements**:
+- 50% fewer WebSocket connections (was 2, now 1 per session)
+- Immediate cleanup on session end (not after timeout)
+- No wasted reconnection attempts on dead sessions
+- No memory leaks from lingering closures
 
 **Previous Features (v4.0)**:
 

@@ -120,16 +120,26 @@ function ChatWithBrowserPanel({
   onBrowserSessionChange: (hasSession: boolean) => void;
 }) {
   const { browserSession } = useChatContext();
+  const previousStreamUrlRef = React.useRef<string | null | undefined>(undefined);
   
-  // Auto-expand when browser session becomes active, auto-collapse when inactive
+  // Auto-expand when NEW browser session starts (different streamUrl)
+  // Auto-collapse when session ends
   React.useEffect(() => {
-    if (browserSession?.isActive && !browserPanelExpanded) {
+    const currentStreamUrl = browserSession?.streamUrl;
+    const wasActive = previousStreamUrlRef.current !== undefined && previousStreamUrlRef.current !== null;
+    
+    // New browser task started (streamUrl changed and session is active)
+    if (browserSession?.isActive && currentStreamUrl && currentStreamUrl !== previousStreamUrlRef.current) {
       setBrowserPanelExpanded(true);
-    } else if (!browserSession?.isActive && browserPanelExpanded) {
-      // Auto-collapse when browser session ends or thread changes to one without browser
+    }
+    // Session ended (was active, now inactive)
+    else if (!browserSession?.isActive && wasActive && browserPanelExpanded) {
       setBrowserPanelExpanded(false);
     }
-  }, [browserSession?.isActive, browserPanelExpanded, setBrowserPanelExpanded]);
+    
+    // Update ref
+    previousStreamUrlRef.current = currentStreamUrl;
+  }, [browserSession?.isActive, browserSession?.streamUrl, browserPanelExpanded, setBrowserPanelExpanded]);
   
   // Notify parent about browser session state
   React.useEffect(() => {

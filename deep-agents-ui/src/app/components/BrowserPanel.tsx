@@ -34,22 +34,6 @@ interface StatusMessage {
 type WebSocketMessage = FrameMessage | StatusMessage;
 
 export function BrowserPanel({ browserSession, isExpanded, onToggleExpand }: BrowserPanelProps) {
-  const [imageSrc, setImageSrc] = useState<string>("");
-  const [connectionStatus, setConnectionStatus] = useState<{
-    connected: boolean;
-    screencasting: boolean;
-  }>({ connected: false, screencasting: false });
-  const [viewport, setViewport] = useState<{
-    width: number;
-    height: number;
-  }>({ width: 0, height: 0 });
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const hasConnectedOnceRef = useRef(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const maxReconnectAttempts = 5;
-
   const streamUrl = browserSession?.streamUrl;
   const isActive = browserSession?.isActive ?? false;
 
@@ -60,147 +44,8 @@ export function BrowserPanel({ browserSession, isExpanded, onToggleExpand }: Bro
     }
   }, [isActive, streamUrl, isExpanded, onToggleExpand]);
 
-  // Reset connection state when streamUrl changes
-  useEffect(() => {
-    setReconnectAttempts(0);
-    hasConnectedOnceRef.current = false;
-  }, [streamUrl]);
-
-  useEffect(() => {
-    if (!streamUrl || !isActive) {
-      // Clean up connection if not active
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setConnectionStatus({ connected: false, screencasting: false });
-      setImageSrc("");
-      return;
-    }
-
-    const connectWebSocket = () => {
-      try {
-        // Validate WebSocket URL
-        if (!streamUrl.startsWith('ws://') && !streamUrl.startsWith('wss://')) {
-          console.error("Invalid WebSocket URL:", streamUrl);
-          return;
-        }
-
-        console.log("Attempting to connect to browser stream:", streamUrl);
-        const ws = new WebSocket(streamUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          console.log("Browser stream connected successfully");
-          setConnectionStatus((prev) => ({ ...prev, connected: true }));
-          setReconnectAttempts(0);
-          setConnectionError(null);
-          hasConnectedOnceRef.current = true;
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg: WebSocketMessage = JSON.parse(event.data);
-
-            if (msg.type === "frame") {
-              // Update image with base64 data
-              setImageSrc(`data:image/jpeg;base64,${msg.data}`);
-              // Update viewport dimensions from metadata
-              if (msg.metadata) {
-                setViewport({
-                  width: msg.metadata.deviceWidth,
-                  height: msg.metadata.deviceHeight,
-                });
-              }
-            } else if (msg.type === "status") {
-              setConnectionStatus({
-                connected: msg.connected,
-                screencasting: msg.screencasting,
-              });
-              if (msg.viewportWidth && msg.viewportHeight) {
-                setViewport({
-                  width: msg.viewportWidth,
-                  height: msg.viewportHeight,
-                });
-              }
-            }
-          } catch (error) {
-            console.error("Failed to parse WebSocket message:", error);
-          }
-        };
-
-        ws.onerror = (event) => {
-          // WebSocket onerror fires during normal connection handshake
-          // Only handle errors in onclose where we have more context
-        };
-
-        ws.onclose = (event) => {
-          setConnectionStatus({ connected: false, screencasting: false });
-          
-          // Check if this was an abnormal closure (not a clean disconnect)
-          const wasAbnormal = event.code !== 1000 && event.code !== 1001;
-          
-          setReconnectAttempts((currentAttempts) => {
-            // Attempt to reconnect if still active and haven't exceeded max attempts
-            if (isActive && streamUrl && currentAttempts < maxReconnectAttempts) {
-              // Only log initial connection failure if we never connected
-              if (currentAttempts === 0 && !hasConnectedOnceRef.current && wasAbnormal) {
-                console.error("WebSocket connection failed - browser stream may not be running");
-                const port = streamUrl.match(/:(\d+)/)?.[1] || "9223";
-                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
-              } else if (hasConnectedOnceRef.current) {
-                console.log("WebSocket connection lost, attempting to reconnect...");
-              }
-              
-              const backoffTime = Math.min(1000 * Math.pow(2, currentAttempts), 10000);
-              reconnectTimeoutRef.current = setTimeout(() => {
-                connectWebSocket();
-              }, backoffTime);
-              
-              return currentAttempts + 1;
-            } else if (currentAttempts >= maxReconnectAttempts) {
-              if (hasConnectedOnceRef.current) {
-                console.log("Browser session ended (possibly due to inactivity timeout)");
-                setConnectionError("Browser session ended. The session may have timed out due to inactivity.");
-              } else {
-                console.error("Failed to connect to browser stream after multiple attempts");
-                const port = streamUrl.match(/:(\d+)/)?.[1] || "9223";
-                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
-              }
-            }
-            return currentAttempts;
-          });
-        };
-      } catch (error) {
-        console.error("Failed to connect to browser stream:", error);
-      }
-    };
-
-    connectWebSocket();
-
-    // Cleanup on unmount or when streamUrl changes
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [streamUrl, isActive, reconnectAttempts]);
-
-  const handleReconnect = () => {
-    setReconnectAttempts(0);
-    setConnectionError(null);
-    hasConnectedOnceRef.current = false;
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-  };
-
-  // This component handles WebSocket connection only
-  // UI is rendered separately via BrowserPanelContent
+  // This component is now just a controller for auto-expand logic
+  // All WebSocket connection management is in BrowserPanelContent to avoid duplicate connections
   return null;
 }
 
@@ -224,12 +69,39 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
 
   const streamUrl = browserSession?.streamUrl;
   const isActive = browserSession?.isActive ?? false;
+  
+  // Store props in refs to prevent stale closures
+  const streamUrlRef = useRef(streamUrl);
+  const isActiveRef = useRef(isActive);
+
+  // Update refs when props change
+  useEffect(() => {
+    streamUrlRef.current = streamUrl;
+    isActiveRef.current = isActive;
+  }, [streamUrl, isActive]);
 
   // Reset connection state when streamUrl changes
   useEffect(() => {
     setReconnectAttempts(0);
     hasConnectedOnceRef.current = false;
   }, [streamUrl]);
+
+  // Explicit cleanup when session becomes inactive
+  useEffect(() => {
+    if (!isActive && wsRef.current) {
+      console.log("[BrowserPanelContent] Session ended, closing WebSocket");
+      wsRef.current.close(1000, "Session ended");
+      wsRef.current = null;
+      // Cancel any pending reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      setReconnectAttempts(0);
+      setConnectionStatus({ connected: false, screencasting: false });
+      setImageSrc("");
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (!streamUrl || !isActive) {
@@ -289,13 +161,20 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
           const wasAbnormal = event.code !== 1000 && event.code !== 1001;
           
           setReconnectAttempts((currentAttempts) => {
+            // Use refs to get latest values (no stale closures)
+            const currentStreamUrl = streamUrlRef.current;
+            const currentIsActive = isActiveRef.current;
+            
             // Attempt to reconnect if still active and haven't exceeded max attempts
-            if (isActive && streamUrl && currentAttempts < maxReconnectAttempts) {
-              // Only log initial connection failure if we never connected
-              if (currentAttempts === 0 && !hasConnectedOnceRef.current && wasAbnormal) {
+            if (currentIsActive && currentStreamUrl && currentAttempts < maxReconnectAttempts) {
+              // Grace period for stream server startup - only log error after silent retries
+              const SILENT_RETRY_ATTEMPTS = 2;
+              
+              // Only log error after grace period (stream server may still be starting)
+              if (currentAttempts >= SILENT_RETRY_ATTEMPTS && !hasConnectedOnceRef.current && wasAbnormal) {
                 console.error("WebSocket connection failed - browser stream may not be running");
-                const port = streamUrl.split(":").pop();
-                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
+                const port = currentStreamUrl.split(":").pop();
+                setConnectionError(`Unable to connect to browser stream at ${currentStreamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
               } else if (hasConnectedOnceRef.current) {
                 console.log("WebSocket connection lost, attempting to reconnect...");
               }
@@ -312,8 +191,8 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
                 setConnectionError("Browser session ended. The session may have timed out due to inactivity.");
               } else {
                 console.error("Failed to connect to browser stream after multiple attempts");
-                const port = streamUrl.split(":").pop();
-                setConnectionError(`Unable to connect to browser stream at ${streamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
+                const port = currentStreamUrl?.split(":").pop() || "9223";
+                setConnectionError(`Unable to connect to browser stream at ${currentStreamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`);
               }
             }
             return currentAttempts;
