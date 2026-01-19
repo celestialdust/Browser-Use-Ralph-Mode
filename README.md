@@ -28,29 +28,40 @@ Browser-Use/
 │   │   ├── configuration.py   # Azure OpenAI config
 │   │   ├── tools.py          # Browser automation tools
 │   │   ├── state.py          # State definitions
-│   │   ├── prompts.py        # System prompts
+│   │   ├── prompts.py        # System prompts + memory management
+│   │   ├── skills/           # Skill loader
 │   │   └── utils.py          # StreamManager
 │   ├── agent.py              # CLI entry point
-│   ├── server.py             # Optional FastAPI wrapper
+│   ├── server.py             # Optional FastAPI wrapper + skills API
 │   └── langgraph.json        # LangGraph config
 │
 ├── deep-agents-ui/            # Next.js Frontend
 │   ├── src/app/
+│   │   ├── api/skills/       # Skills API route
 │   │   ├── components/       # UI components
 │   │   │   ├── ChatInterface.tsx
-│   │   │   ├── BrowserPanel.tsx         # NEW: Persistent browser panel
+│   │   │   ├── BrowserPanel.tsx         # Persistent browser panel
 │   │   │   ├── BrowserPreview.tsx
-│   │   │   ├── ThoughtProcess.tsx       # Enhanced: Waterfall display
-│   │   │   ├── ConfigDialog.tsx         # Enhanced: Ralph mode settings
+│   │   │   ├── ThoughtProcess.tsx       # Waterfall display
+│   │   │   ├── ReasoningDisplay.tsx     # OpenAI reasoning summary
+│   │   │   ├── ConfigDialog.tsx         # Settings + skills display
 │   │   │   └── BrowserCommandApproval.tsx
 │   │   ├── hooks/           # React hooks
 │   │   ├── providers/       # Context providers
 │   │   └── types/          # TypeScript definitions
-│   ├── .env.local.example   # NEW: Environment variables template
+│   ├── .env.local.example   # Environment variables template
 │   └── ...
 │
-├── skills/                    # 📚 Browser automation skills
-│   └── SKILL.md              # agent-browser documentation
+├── .browser-agent/            # 📚 Agent memory and skills
+│   ├── skills/               # Skill files
+│   │   ├── agent-browser/    # Browser automation skill
+│   │   ├── skill-creator.md  # Guide for creating skills
+│   │   ├── pdf.md           # PDF manipulation
+│   │   ├── pptx.md          # PowerPoint creation/editing
+│   │   └── docx.md          # Word document handling
+│   ├── memory/              # Agent memory files
+│   └── artifacts/           # Generated files
+│
 ├── agent.md                  # 📖 Technical reference
 └── README.md                 # This file
 ```
@@ -62,6 +73,17 @@ Browser-Use/
 - **File System Tools**: Manage large context with filesystem
 - **Subagent Spawning**: Delegate tasks to specialized agents
 - **Long-term Memory**: Persistent state across conversations
+
+### Skills System
+- **Document Skills**: PDF, PPTX, DOCX manipulation
+- **Browser Skills**: Automated browser interactions
+- **Skill Creator**: Guide for building custom skills
+- **Settings Integration**: View and manage skills in UI
+
+### Memory Management
+- **AGENTS.md**: Store learned website patterns
+- **Diary**: Record task completions and learnings
+- **Skills**: Create reusable workflows
 
 ### Ralph Mode
 - **Iterative Refinement**: Agent retries with improvements
@@ -331,9 +353,8 @@ Inspired by [Anthropic's Claude](https://claude.ai/):
 
 - [Backend README](./browser-use-agent/README.md) - Python agent details
 - [Frontend README](./deep-agents-ui/README.md) - Next.js UI details
-- [Implementation Notes](./deep-agents-ui/IMPLEMENTATION_NOTES.md) - Recent improvements
 - [agent.md](./agent.md) - Technical reference & implementation
-- [SKILL.md](./skills/SKILL.md) - Browser automation commands
+- Skills: `.browser-agent/skills/` - PDF, PPTX, DOCX, browser automation
 
 ### External Resources
 - [DeepAgents Docs](https://docs.langchain.com/oss/python/deepagents/overview)

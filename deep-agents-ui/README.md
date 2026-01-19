@@ -4,6 +4,40 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
 
 ## What's New (Latest Update)
 
+### v4.3 - Skills Display & UI Refinements 🎯
+
+**New Features**:
+
+1. **📚 Skills Display in Settings**
+   - Skills from `.browser-agent/skills/` now shown in Settings dialog
+   - Backend skills marked with "system" badge
+   - Toggle skills on/off (state persisted)
+   - User-created skills can be deleted
+
+2. **🔌 Skills API Route**
+   - New `/api/skills` endpoint fetches skills from backend directory
+   - Supports both flat files (`skill.md`) and directories (`skill/SKILL.md`)
+   - Merged with user skills from localStorage
+
+3. **✂️ Thread Title Truncation**
+   - Long thread titles properly truncate with ellipsis
+   - Full title shown on hover via tooltip
+
+4. **🧠 Reasoning Display**
+   - Removed brain icon from reasoning section header
+   - Cleaner "Thought process" label with chevron toggle
+
+5. **📎 Chat Input Layout**
+   - Upload button moved to bottom left
+   - Send button positioned at bottom right
+   - Cleaner layout with proper spacing
+
+6. **🖼️ Image Display in Messages**
+   - Attached images now display at top right of sent message
+   - Proper sizing and border styling
+
+---
+
 ### v4.2 - Fixed False WebSocket Error & Close Button 🎯
 
 **Critical Fixes**:
@@ -163,6 +197,8 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
 - 🔧 **Environment Variable Support**: Pre-configure settings via `.env.local`
 - 🎯 **Claude-Inspired Sidebar**: New chat button at top, settings at bottom, streamlined layout
 - 📝 **Smart Tool Display**: Browser/file tools show simplified `key: value` format, others expandable
+- 📚 **Skills Management**: View and toggle skills in Settings dialog
+- 🔌 **Skills API**: `/api/skills` endpoint for fetching backend skills
 
 ### Backend Features
 - ⏱️ **Automatic Browser Timeout**: Sessions auto-close after 5 minutes of inactivity
@@ -191,13 +227,17 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
 deep-agents-ui/
 ├── src/
 │   ├── app/                    # Next.js app directory
+│   │   ├── api/               # API routes
+│   │   │   └── skills/        # Skills API
+│   │   │       └── route.ts   # GET /api/skills
 │   │   ├── components/        # UI components
 │   │   │   ├── BrowserCommandApproval.tsx   # Approval dialog
-│   │   │   ├── BrowserPanel.tsx             # Persistent browser panel (NEW)
+│   │   │   ├── BrowserPanel.tsx             # Persistent browser panel
 │   │   │   ├── BrowserPreview.tsx           # WebSocket browser stream
 │   │   │   ├── ChatInterface.tsx            # Main chat UI
 │   │   │   ├── ChatMessage.tsx              # Message renderer
-│   │   │   ├── ConfigDialog.tsx             # Enhanced settings modal
+│   │   │   ├── ConfigDialog.tsx             # Settings + skills display
+│   │   │   ├── ReasoningDisplay.tsx         # OpenAI reasoning summary
 │   │   │   ├── ThoughtProcess.tsx           # Waterfall thinking display
 │   │   │   ├── ThreadList.tsx               # Thread sidebar
 │   │   │   └── ...
@@ -795,7 +835,7 @@ yarn tsc --noEmit
 
 - [Backend README](../browser-use-agent/README.md)
 - [Main Project README](../README.md)
-- [Implementation Notes](./IMPLEMENTATION_NOTES.md)
+- Skills: `../.browser-agent/skills/` - PDF, PPTX, DOCX, browser automation
 - [agent-browser docs](https://agent-browser.dev/)
 - [DeepAgents docs](https://docs.langchain.com/oss/python/deepagents/overview)
 

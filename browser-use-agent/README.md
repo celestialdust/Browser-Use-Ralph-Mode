@@ -22,16 +22,29 @@ browser-use-agent/
 │   ├── __init__.py            # Package initialization
 │   ├── configuration.py       # Configuration and LLM setup
 │   ├── browser_agent.py       # Main agent implementation with Ralph Mode
-│   ├── prompts.py            # System prompts and templates
+│   ├── prompts.py            # System prompts + memory management
 │   ├── state.py              # State definitions and data models
 │   ├── tools.py              # Browser automation tools
+│   ├── models.py             # Pydantic models for structured output
+│   ├── skills/               # Skill loader
+│   │   ├── __init__.py
+│   │   └── loader.py         # Load skills from .browser-agent/skills/
 │   └── utils.py              # Utility functions (StreamManager)
 ├── agent.py                   # CLI entry point
-├── server.py                  # Optional FastAPI server
+├── server.py                  # FastAPI server with skills API
 ├── langgraph.json            # LangGraph configuration
 ├── pyproject.toml            # Project configuration
-├── requirements.txt          # Dependencies
 └── .env                      # Environment variables (not committed)
+
+../.browser-agent/              # Agent memory and skills (project root)
+├── skills/                    # Skill files
+│   ├── agent-browser/        # Browser automation skill
+│   ├── skill-creator.md      # Guide for creating skills
+│   ├── pdf.md               # PDF manipulation
+│   ├── pptx.md              # PowerPoint creation/editing
+│   └── docx.md              # Word document handling
+├── memory/                   # Agent memory files
+└── artifacts/               # Generated files
 ```
 
 ## Installation
@@ -169,6 +182,47 @@ The agent automatically includes DeepAgents capabilities:
 - **Subagents**: `task` tool for spawning specialized agents
 - **Memory**: Persistent state across conversations
 - **Checkpointing**: Resume interrupted tasks
+
+## Skills System
+
+Skills are modular packages that extend agent capabilities. Located in `.browser-agent/skills/`:
+
+### Available Skills
+- **agent-browser**: Browser automation commands and patterns
+- **skill-creator**: Guide for creating new skills
+- **pdf**: PDF manipulation (extract, merge, split, create)
+- **pptx**: PowerPoint creation and editing
+- **docx**: Word document creation with tracked changes
+
+### Skills API
+
+The FastAPI server exposes skills endpoints:
+```bash
+# List all skills
+GET /skills
+
+# Get specific skill content
+GET /skills/{skill_name}
+```
+
+### Loading Skills
+```python
+from browser_use_agent.skills.loader import SkillLoader
+
+loader = SkillLoader()
+skills = loader.list_skills()  # Get metadata
+content = loader.load_skill("pdf")  # Get full content
+```
+
+## Memory Management
+
+The agent maintains persistent memory for learning:
+
+- **AGENTS.md**: Learned website patterns and navigation quirks
+- **diary.md**: Task completions and learnings
+- **skills/**: Reusable workflows
+
+Memory update guidelines are in the system prompt.
 
 ## Development
 

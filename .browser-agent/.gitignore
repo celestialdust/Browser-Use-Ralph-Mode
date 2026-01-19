@@ -1,0 +1,10 @@
+# Ignore sensitive and generated files
+settings/credentials.json
+artifacts/
+memory/
+traces/
+checkpoints/*.db
+checkpoints/*.db-*
+
+# Keep directory structure
+!.gitkeep
