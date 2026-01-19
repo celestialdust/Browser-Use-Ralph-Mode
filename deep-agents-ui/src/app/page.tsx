@@ -132,8 +132,12 @@ function ChatWithBrowserPanel({
     const isActive = browserSession?.isActive ?? false;
     const wasActive = previousWasActiveRef.current;
 
-    // New browser task started (streamUrl changed and session is active)
-    if (isActive && currentStreamUrl && currentStreamUrl !== previousStreamUrlRef.current) {
+    // New browser task started:
+    // - Session became active (wasActive=false -> isActive=true), OR
+    // - streamUrl changed (different browser session)
+    // This handles the case where browser_close followed by browser_navigate
+    // uses the same port (since port is deterministic per thread_id)
+    if (isActive && currentStreamUrl && (!wasActive || currentStreamUrl !== previousStreamUrlRef.current)) {
       setBrowserPanelExpanded(true);
     }
     // Session ended (was active, now inactive)
