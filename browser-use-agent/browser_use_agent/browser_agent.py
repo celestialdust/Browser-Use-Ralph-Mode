@@ -82,14 +82,13 @@ def create_browser_agent(
     # - FilesystemMiddleware (file ops - configured via backend parameter)
     # - SubAgentMiddleware (task delegation)
     # - SummarizationMiddleware (context management)
-    # NOTE: Disabling AnthropicPromptCachingMiddleware since we're using GPT-5
+    # NOTE: Using GPT-5 which doesn't use Anthropic prompt caching
     agent = create_deep_agent(
         model=model,
         system_prompt=prompt,
         tools=tools,
         backend=filesystem_backend,  # Configure custom filesystem backend
         checkpointer=checkpointer,
-        use_prompt_caching=False,  # Disable Anthropic caching for GPT-5 compatibility
         **kwargs
     )
 
