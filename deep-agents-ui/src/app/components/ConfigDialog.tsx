@@ -21,6 +21,7 @@ interface Skill {
   name: string;
   description: string;
   enabled: boolean;
+  source: "backend" | "user";
 }
 
 interface ConfigDialogProps {
@@ -54,26 +55,73 @@ export function ConfigDialog({
   const [browserStreamPort, setBrowserStreamPort] = useState(
     initialConfig?.browserStreamPort ?? 9223
   );
-  // Skills state - loaded from localStorage
+  // Skills state - loaded from backend and localStorage
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false);
 
-  // Load skills from localStorage on mount
+  // Load skills from backend API and localStorage when dialog opens
   useEffect(() => {
-    try {
-      const savedSkills = localStorage.getItem("browser-agent-skills");
-      if (savedSkills) {
-        setSkills(JSON.parse(savedSkills));
-      }
-    } catch (e) {
-      console.error("Failed to load skills from localStorage:", e);
-    }
-  }, []);
+    if (!open) return;
 
-  // Save skills to localStorage when they change
+    const loadSkills = async () => {
+      setIsLoadingSkills(true);
+      const allSkills: Skill[] = [];
+      const seenNames = new Set<string>();
+
+      // Load backend skills from API
+      try {
+        const response = await fetch("/api/skills");
+        if (response.ok) {
+          const data = await response.json();
+          for (const skill of data.skills || []) {
+            if (!seenNames.has(skill.name)) {
+              seenNames.add(skill.name);
+              allSkills.push({
+                name: skill.name,
+                description: skill.description || "No description",
+                enabled: true, // Backend skills are enabled by default
+                source: "backend",
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load backend skills:", e);
+      }
+
+      // Load user skills from localStorage
+      try {
+        const savedSkills = localStorage.getItem("browser-agent-skills");
+        if (savedSkills) {
+          const userSkills = JSON.parse(savedSkills);
+          for (const skill of userSkills) {
+            if (!seenNames.has(skill.name)) {
+              seenNames.add(skill.name);
+              allSkills.push({
+                ...skill,
+                source: skill.source || "user",
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load skills from localStorage:", e);
+      }
+
+      setSkills(allSkills);
+      setIsLoadingSkills(false);
+    };
+
+    loadSkills();
+  }, [open]);
+
+  // Save user skills to localStorage when they change
   const saveSkills = (updatedSkills: Skill[]) => {
     setSkills(updatedSkills);
+    // Only save user skills to localStorage
+    const userSkills = updatedSkills.filter((s) => s.source === "user");
     try {
-      localStorage.setItem("browser-agent-skills", JSON.stringify(updatedSkills));
+      localStorage.setItem("browser-agent-skills", JSON.stringify(userSkills));
     } catch (e) {
       console.error("Failed to save skills to localStorage:", e);
     }
@@ -87,6 +135,11 @@ export function ConfigDialog({
   };
 
   const deleteSkill = (skillName: string) => {
+    // Only allow deleting user skills
+    const skill = skills.find((s) => s.name === skillName);
+    if (skill?.source === "backend") {
+      return; // Can't delete backend skills
+    }
     const updatedSkills = skills.filter((skill) => skill.name !== skillName);
     saveSkills(updatedSkills);
   };
@@ -251,10 +304,14 @@ export function ConfigDialog({
           {/* Skills Section */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground">Skills</h3>
-            <div className="border border-border rounded-md divide-y divide-border max-h-40 overflow-y-auto">
-              {skills.length === 0 ? (
+            <div className="border border-border rounded-md divide-y divide-border max-h-48 overflow-y-auto">
+              {isLoadingSkills ? (
                 <div className="p-3 text-sm text-muted-foreground text-center">
-                  No skills created yet
+                  Loading skills...
+                </div>
+              ) : skills.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">
+                  No skills available
                 </div>
               ) : (
                 skills.map((skill) => (
@@ -262,36 +319,45 @@ export function ConfigDialog({
                     key={skill.name}
                     className="flex items-center justify-between p-2 text-sm"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <input
                         type="checkbox"
                         checked={skill.enabled}
                         onChange={() => toggleSkill(skill.name)}
-                        className="h-4 w-4 rounded border-border"
+                        className="h-4 w-4 rounded border-border flex-shrink-0"
                       />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium truncate">{skill.name}</span>
-                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                          {skill.description.length > 50
-                            ? `${skill.description.substring(0, 50)}...`
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{skill.name}</span>
+                          {skill.source === "backend" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
+                              system
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {skill.description.length > 60
+                            ? `${skill.description.substring(0, 60)}...`
                             : skill.description}
                         </span>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => deleteSkill(skill.name)}
-                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
-                      aria-label={`Delete ${skill.name}`}
-                    >
-                      <X size={16} />
-                    </button>
+                    {skill.source === "user" && (
+                      <button
+                        type="button"
+                        onClick={() => deleteSkill(skill.name)}
+                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 ml-2"
+                        aria-label={`Delete ${skill.name}`}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
                   </div>
                 ))
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Skills are reusable workflows learned by the agent. Toggle to enable/disable.
+              System skills are loaded from the skills directory. Toggle to enable/disable.
             </p>
           </div>
         </div>

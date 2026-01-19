@@ -207,21 +207,21 @@ export function ThreadList({
                         type="button"
                         onClick={() => onThreadSelect(thread.id)}
                         className={cn(
-                          "group relative w-full cursor-pointer rounded-lg px-3 py-2.5 text-left transition-all duration-150",
+                          "group relative w-full cursor-pointer rounded-lg px-3 py-2.5 text-left transition-all duration-150 overflow-hidden",
                           currentThreadId === thread.id
                             ? "bg-accent text-foreground"
                             : "text-muted-foreground hover:bg-accent/50"
                         )}
                         aria-current={currentThreadId === thread.id}
                       >
-                        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-2 min-w-0 w-full">
                           <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                          <h3
-                            className="truncate text-sm font-medium min-w-0 flex-1"
+                          <span
+                            className="truncate text-sm font-medium flex-1"
                             title={thread.title}
                           >
                             {thread.title}
-                          </h3>
+                          </span>
                         </div>
                       </button>
                     ))}

@@ -10,6 +10,7 @@ from agent import create_agent_state
 from stream_manager import stream_manager
 from browser_use_agent.browser_agent import create_browser_agent
 from browser_use_agent.storage import init_checkpoint_db
+from browser_use_agent.skills.loader import SkillLoader
 
 
 async def setup_storage():
@@ -233,7 +234,7 @@ async def close_thread(thread_id: str):
 async def list_threads():
     """
     List all active threads.
-    
+
     Returns:
         dict: List of thread IDs and their status
     """
@@ -245,8 +246,47 @@ async def list_threads():
             "has_browser": state.get("browser_session") is not None,
             "todos_count": len(state.get("todos", [])),
         })
-    
+
     return {"threads": threads, "count": len(threads)}
+
+
+@app.get("/skills")
+async def list_skills():
+    """
+    List all available skills from the skills directory.
+
+    Returns:
+        dict: List of skills with metadata
+    """
+    try:
+        loader = SkillLoader()
+        skills = loader.list_skills()
+        return {"skills": skills, "count": len(skills)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/skills/{skill_name}")
+async def get_skill(skill_name: str):
+    """
+    Get a specific skill's full content.
+
+    Args:
+        skill_name: Name of the skill to load
+
+    Returns:
+        dict: Skill content
+    """
+    try:
+        loader = SkillLoader()
+        content = loader.load_skill(skill_name)
+        if content is None:
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
+        return {"name": skill_name, "content": content}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
