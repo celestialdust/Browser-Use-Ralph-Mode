@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import {
   type Message,
@@ -342,15 +342,27 @@ export function useChat({
     stream.stop();
   }, [stream]);
 
+  // Memoize fallback values to prevent creating new objects on each render
+  // which could cause infinite re-renders in dependent components
+  const emptyTodos: TodoItem[] = useMemo(() => [], []);
+  const emptyFiles: Record<string, string> = useMemo(() => ({}), []);
+  const emptyApprovalQueue: BrowserCommand[] = useMemo(() => [], []);
+
+  const todos = stream.values.todos ?? emptyTodos;
+  const files = stream.values.files ?? emptyFiles;
+  const approvalQueue = stream.values.approval_queue ?? emptyApprovalQueue;
+  const resolvedBrowserSession = browserSession ?? stream.values.browser_session ?? null;
+  const currentThought = stream.values.current_thought ?? null;
+
   return {
     stream,
-    todos: stream.values.todos ?? [],
-    files: stream.values.files ?? {},
+    todos,
+    files,
     email: stream.values.email,
     ui: stream.values.ui,
-    browserSession: browserSession ?? stream.values.browser_session ?? null,
-    approvalQueue: stream.values.approval_queue ?? [],
-    currentThought: stream.values.current_thought ?? null,
+    browserSession: resolvedBrowserSession,
+    approvalQueue,
+    currentThought,
     setFiles,
     messages: stream.messages,
     isLoading: stream.isLoading,

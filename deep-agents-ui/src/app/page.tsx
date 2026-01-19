@@ -106,13 +106,13 @@ function BrowserHeader({
 }
 
 // Wrapper component to access chat context for browser panel
-function ChatWithBrowserPanel({ 
-  assistant, 
+function ChatWithBrowserPanel({
+  assistant,
   config,
   browserPanelExpanded,
   setBrowserPanelExpanded,
   onBrowserSessionChange
-}: { 
+}: {
   assistant: Assistant | null;
   config: StandaloneConfig;
   browserPanelExpanded: boolean;
@@ -121,26 +121,31 @@ function ChatWithBrowserPanel({
 }) {
   const { browserSession } = useChatContext();
   const previousStreamUrlRef = React.useRef<string | null | undefined>(undefined);
-  
+  const previousWasActiveRef = React.useRef<boolean>(false);
+
   // Auto-expand when NEW browser session starts (different streamUrl)
   // Auto-collapse when session ends
+  // Note: We use refs to track state to avoid infinite loops from having
+  // browserPanelExpanded as both dependency and target of the effect
   React.useEffect(() => {
     const currentStreamUrl = browserSession?.streamUrl;
-    const wasActive = previousStreamUrlRef.current !== undefined && previousStreamUrlRef.current !== null;
-    
+    const isActive = browserSession?.isActive ?? false;
+    const wasActive = previousWasActiveRef.current;
+
     // New browser task started (streamUrl changed and session is active)
-    if (browserSession?.isActive && currentStreamUrl && currentStreamUrl !== previousStreamUrlRef.current) {
+    if (isActive && currentStreamUrl && currentStreamUrl !== previousStreamUrlRef.current) {
       setBrowserPanelExpanded(true);
     }
     // Session ended (was active, now inactive)
-    else if (!browserSession?.isActive && wasActive && browserPanelExpanded) {
+    else if (!isActive && wasActive) {
       setBrowserPanelExpanded(false);
     }
-    
-    // Update ref
+
+    // Update refs
     previousStreamUrlRef.current = currentStreamUrl;
-  }, [browserSession?.isActive, browserSession?.streamUrl, browserPanelExpanded, setBrowserPanelExpanded]);
-  
+    previousWasActiveRef.current = isActive;
+  }, [browserSession?.isActive, browserSession?.streamUrl, setBrowserPanelExpanded]);
+
   // Notify parent about browser session state
   React.useEffect(() => {
     onBrowserSessionChange(browserSession?.isActive ?? false);

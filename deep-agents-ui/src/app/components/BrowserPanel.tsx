@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Monitor, Wifi, WifiOff, Maximize2, Minimize2, X, RefreshCw } from "lucide-react";
+import { Monitor, RefreshCw } from "lucide-react";
 import type { BrowserSession } from "@/app/types/types";
 
 // WebSocket connection constants
@@ -40,18 +40,9 @@ interface StatusMessage {
 type WebSocketMessage = FrameMessage | StatusMessage;
 
 export function BrowserPanel({ browserSession, isExpanded, onToggleExpand }: BrowserPanelProps) {
-  const streamUrl = browserSession?.streamUrl;
-  const isActive = browserSession?.isActive ?? false;
-
-  // Auto-expand when browser session becomes active
-  useEffect(() => {
-    if (isActive && streamUrl && !isExpanded) {
-      onToggleExpand(true);
-    }
-  }, [isActive, streamUrl, isExpanded, onToggleExpand]);
-
-  // This component is now just a controller for auto-expand logic
-  // All WebSocket connection management is in BrowserPanelContent to avoid duplicate connections
+  // Auto-expand logic is now handled in page.tsx's ChatWithBrowserPanel component
+  // to avoid duplicate effects that could cause infinite loops.
+  // This component is kept for API compatibility but does nothing.
   return null;
 }
 
