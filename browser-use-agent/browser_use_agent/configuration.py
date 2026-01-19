@@ -1,9 +1,10 @@
 """Configuration and model setup for browser automation agent."""
 
 import os
-from typing import Optional
+import warnings
+from typing import Literal, Optional
 from dotenv import load_dotenv
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import ChatOpenAI
 
 # Load environment variables
 load_dotenv()
@@ -11,13 +12,28 @@ load_dotenv()
 
 class Config:
     """Configuration for the browser automation agent."""
-    
-    # Azure OpenAI settings
+
+    # DEPRECATED: Azure OpenAI settings are deprecated and will be removed in a future version.
+    # Please migrate to using direct OpenAI API (USE_AZURE=false) with OPENAI_API_KEY.
+    # These settings are kept for backwards compatibility only.
     AZURE_OPENAI_ENDPOINT: str = os.getenv("AZURE_OPENAI_ENDPOINT", "https://DM-OPENAI-DEV-SWEDEN.openai.azure.com")
     AZURE_OPENAI_API_KEY: str = os.getenv("AZURE_OPENAI_API_KEY", "")
     OPENAI_API_VERSION: str = os.getenv("OPENAI_API_VERSION", "2025-01-01-preview")
     DEPLOYMENT_NAME: str = os.getenv("DEPLOYMENT_NAME", "gsds-gpt-5")
-    
+
+    # OpenAI settings (for direct OpenAI API usage)
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
+
+    # Reasoning API settings
+    REASONING_ENABLED: bool = os.getenv("REASONING_ENABLED", "true").lower() == "true"
+    REASONING_EFFORT: str = os.getenv("REASONING_EFFORT", "medium")
+    REASONING_SUMMARY: str = os.getenv("REASONING_SUMMARY", "detailed")
+
+    # DEPRECATED: USE_AZURE is deprecated along with Azure settings above.
+    # Use Azure endpoint by default (set to false for direct OpenAI API)
+    USE_AZURE: bool = os.getenv("USE_AZURE", "true").lower() == "true"
+
     # Model parameters
     TEMPERATURE: float = float(os.getenv("TEMPERATURE", "1.0"))
     
@@ -56,40 +72,120 @@ class Config:
     }
     
     @classmethod
-    def validate(cls) -> None:
-        """Validate required configuration."""
-        if not cls.AZURE_OPENAI_ENDPOINT or not cls.AZURE_OPENAI_API_KEY:
-            raise ValueError(
-                "Missing required environment variables: "
-                "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be set in .env"
-            )
+    def validate(cls, use_azure: Optional[bool] = None) -> None:
+        """Validate required configuration.
+
+        Args:
+            use_azure: If True, validate Azure config. If False, validate OpenAI config.
+                       If None, uses Config.USE_AZURE.
+        """
+        check_azure = use_azure if use_azure is not None else cls.USE_AZURE
+
+        if check_azure:
+            if not cls.AZURE_OPENAI_ENDPOINT or not cls.AZURE_OPENAI_API_KEY:
+                raise ValueError(
+                    "Missing required environment variables: "
+                    "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be set in .env"
+                )
+        else:
+            if not cls.OPENAI_API_KEY:
+                raise ValueError(
+                    "Missing required environment variable: "
+                    "OPENAI_API_KEY must be set in .env"
+                )
 
 
 def get_llm(
-    endpoint: Optional[str] = None,
     api_key: Optional[str] = None,
-    api_version: Optional[str] = None,
-    deployment_name: Optional[str] = None,
+    model: Optional[str] = None,
     temperature: Optional[float] = None,
-) -> AzureChatOpenAI:
-    """Get configured Azure OpenAI LLM instance.
-    
+    reasoning_enabled: Optional[bool] = None,
+    reasoning_effort: Optional[Literal["low", "medium", "high"]] = None,
+    reasoning_summary: Optional[Literal["brief", "detailed"]] = None,
+    use_azure: Optional[bool] = None,
+    endpoint: Optional[str] = None,
+    streaming: bool = True,
+) -> ChatOpenAI:
+    """Get configured ChatOpenAI LLM instance with reasoning API support.
+
+    Uses ChatOpenAI for both Azure OpenAI and direct OpenAI API.
+    When USE_AZURE=true (default), configures ChatOpenAI to use Azure's
+    /openai/v1/ endpoint with the Responses API.
+
     Args:
-        endpoint: Azure OpenAI endpoint (defaults to Config.AZURE_OPENAI_ENDPOINT)
-        api_key: API key (defaults to Config.AZURE_OPENAI_API_KEY)
-        api_version: API version (defaults to Config.OPENAI_API_VERSION)
-        deployment_name: Deployment name (defaults to Config.DEPLOYMENT_NAME)
+        api_key: API key (defaults based on USE_AZURE setting)
+        model: Model/deployment name (defaults based on USE_AZURE setting)
         temperature: Temperature setting (defaults to Config.TEMPERATURE)
-        
+        reasoning_enabled: Enable reasoning API (defaults to Config.REASONING_ENABLED)
+        reasoning_effort: Reasoning effort level (defaults to Config.REASONING_EFFORT)
+        reasoning_summary: Summary type (defaults to Config.REASONING_SUMMARY)
+        use_azure: Use Azure OpenAI endpoint (defaults to Config.USE_AZURE)
+        endpoint: Azure OpenAI endpoint (defaults to Config.AZURE_OPENAI_ENDPOINT)
+        streaming: Enable streaming (defaults to True)
+
     Returns:
-        AzureChatOpenAI: Configured language model instance
+        ChatOpenAI: Configured language model instance with reasoning support
     """
-    Config.validate()
-    
-    return AzureChatOpenAI(
-        azure_endpoint=endpoint or Config.AZURE_OPENAI_ENDPOINT,
-        api_key=api_key or Config.AZURE_OPENAI_API_KEY,
-        api_version=api_version or Config.OPENAI_API_VERSION,
-        deployment_name=deployment_name or Config.DEPLOYMENT_NAME,
-        temperature=temperature if temperature is not None else Config.TEMPERATURE,
+    _use_azure = use_azure if use_azure is not None else Config.USE_AZURE
+
+    Config.validate(use_azure=_use_azure)
+
+    # Get reasoning configuration
+    _reasoning_enabled = (
+        reasoning_enabled if reasoning_enabled is not None else Config.REASONING_ENABLED
     )
+    _reasoning_effort = reasoning_effort if reasoning_effort is not None else Config.REASONING_EFFORT
+    _reasoning_summary = reasoning_summary if reasoning_summary is not None else Config.REASONING_SUMMARY
+    _temperature = temperature if temperature is not None else Config.TEMPERATURE
+
+    # Build reasoning configuration if enabled
+    reasoning_config = None
+    if _reasoning_enabled:
+        reasoning_config = {
+            "effort": _reasoning_effort,
+            "summary": _reasoning_summary,
+        }
+
+    if _use_azure:
+        # Emit deprecation warning for Azure usage
+        warnings.warn(
+            "Azure OpenAI configuration is deprecated and will be removed in a future version. "
+            "Please migrate to direct OpenAI API by setting USE_AZURE=false and OPENAI_API_KEY.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # Use ChatOpenAI with Azure's /openai/v1/ endpoint for Responses API
+        _endpoint = endpoint or Config.AZURE_OPENAI_ENDPOINT
+        _api_key = api_key or Config.AZURE_OPENAI_API_KEY
+        _model = model or Config.DEPLOYMENT_NAME
+
+        # Construct Azure v1 base URL (must end with /openai/v1/)
+        base_url = f"{_endpoint.rstrip('/')}/openai/v1/"
+
+        return ChatOpenAI(
+            model=_model,
+            api_key=_api_key,
+            base_url=base_url,
+            # Azure requires api-key header for the v1 path
+            default_headers={"api-key": _api_key},
+            # Responses API parameters
+            use_responses_api=_reasoning_enabled,
+            reasoning=reasoning_config,
+            include=["reasoning.encrypted_content"] if _reasoning_enabled else None,
+            temperature=_temperature,
+            streaming=streaming,
+        )
+    else:
+        # Use ChatOpenAI with direct OpenAI API
+        _api_key = api_key or Config.OPENAI_API_KEY
+        _model = model or Config.OPENAI_MODEL
+
+        return ChatOpenAI(
+            model=_model,
+            api_key=_api_key,
+            use_responses_api=_reasoning_enabled,
+            reasoning=reasoning_config,
+            include=["reasoning.encrypted_content"] if _reasoning_enabled else None,
+            temperature=_temperature,
+            streaming=streaming,
+        )
