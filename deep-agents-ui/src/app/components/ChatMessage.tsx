@@ -33,6 +33,26 @@ interface ChatMessageProps {
   currentThought?: ThoughtProcessType | null;
 }
 
+/**
+ * Content block types from OpenAI's Responses API.
+ * The message.content can be an array of these blocks.
+ */
+interface ReasoningContentBlock {
+  type: "reasoning";
+  id?: string;
+  summary?: Array<{ text: string; type: "summary_text" }>;
+  encrypted_content?: string;
+}
+
+interface TextContentBlock {
+  type: "text";
+  text: string;
+  id?: string;
+  index?: number;
+}
+
+type ContentBlock = ReasoningContentBlock | TextContentBlock | string;
+
 export const ChatMessage = React.memo<ChatMessageProps>(
   ({
     message,
@@ -51,34 +71,53 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     const hasContent = messageContent && messageContent.trim() !== "";
     const hasToolCalls = toolCalls.length > 0;
 
-    // Extract reasoning from message if available
-    const reasoning = useMemo(() => {
-      // Check for reasoning in additional_kwargs (common for extended thinking)
-      const additionalKwargs = message.additional_kwargs as Record<string, unknown> | undefined;
-      if (additionalKwargs?.reasoning && typeof additionalKwargs.reasoning === "string") {
-        return additionalKwargs.reasoning;
-      }
-      // Check for reasoning as a direct property on the message
-      const messageWithReasoning = message as Message & { reasoning?: string };
-      if (messageWithReasoning.reasoning && typeof messageWithReasoning.reasoning === "string") {
-        return messageWithReasoning.reasoning;
-      }
-      return null;
-    }, [message]);
+    /**
+     * Extract reasoning summaries from message content blocks.
+     *
+     * When using OpenAI's Responses API with reasoning enabled, the message.content
+     * is an array of content blocks. The first block is typically a "reasoning" block
+     * with an encrypted reasoning field and an optional summary array.
+     *
+     * Example content structure:
+     * [
+     *   {
+     *     "type": "reasoning",
+     *     "id": "rs_...",
+     *     "summary": [
+     *       { "text": "**Step 1**\n\nThinking about...", "type": "summary_text" },
+     *       { "text": "**Step 2**\n\nConsidering...", "type": "summary_text" }
+     *     ]
+     *   },
+     *   {
+     *     "type": "text",
+     *     "text": "The actual response content...",
+     *     "id": "msg_..."
+     *   }
+     * ]
+     */
+    const reasoningSummaries = useMemo(() => {
+      const content = message.content;
 
-    const reasoningSummary = useMemo(() => {
-      // Check for reasoning summary in additional_kwargs
-      const additionalKwargs = message.additional_kwargs as Record<string, unknown> | undefined;
-      if (additionalKwargs?.reasoningSummary && typeof additionalKwargs.reasoningSummary === "string") {
-        return additionalKwargs.reasoningSummary;
+      // If content is an array, look for reasoning blocks
+      if (Array.isArray(content)) {
+        for (const block of content as ContentBlock[]) {
+          if (
+            typeof block === "object" &&
+            block !== null &&
+            "type" in block &&
+            block.type === "reasoning"
+          ) {
+            const reasoningBlock = block as ReasoningContentBlock;
+            if (reasoningBlock.summary && reasoningBlock.summary.length > 0) {
+              return reasoningBlock.summary;
+            }
+          }
+        }
       }
-      // Check for reasoningSummary as a direct property on the message
-      const messageWithSummary = message as Message & { reasoningSummary?: string };
-      if (messageWithSummary.reasoningSummary && typeof messageWithSummary.reasoningSummary === "string") {
-        return messageWithSummary.reasoningSummary;
-      }
-      return undefined;
-    }, [message]);
+
+      return null;
+    }, [message.content]);
+
     const subAgents = useMemo(() => {
       return toolCalls
         .filter((toolCall: ToolCall) => {
@@ -140,12 +179,9 @@ export const ChatMessage = React.memo<ChatMessageProps>(
             />
           )}
 
-          {/* Reasoning Display for assistant messages with reasoning */}
-          {!isUser && reasoning && (
-            <ReasoningDisplay
-              reasoning={reasoning}
-              summary={reasoningSummary}
-            />
+          {/* Reasoning Summary Display for assistant messages */}
+          {!isUser && reasoningSummaries && reasoningSummaries.length > 0 && (
+            <ReasoningDisplay summaries={reasoningSummaries} />
           )}
 
           {hasContent && (
@@ -198,14 +234,11 @@ export const ChatMessage = React.memo<ChatMessageProps>(
               })}
             </div>
           )}
-          
+
           {!isUser && subAgents.length > 0 && (
             <div className="flex w-fit max-w-full flex-col gap-4">
               {subAgents.map((subAgent) => (
-                <div
-                  key={subAgent.id}
-                  className="flex w-full flex-col gap-2"
-                >
+                <div key={subAgent.id} className="flex w-full flex-col gap-2">
                   <div className="flex items-end gap-2">
                     <div className="w-[calc(100%-100px)]">
                       <SubAgentIndicator
