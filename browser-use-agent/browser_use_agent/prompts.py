@@ -76,7 +76,7 @@ These tools will PAUSE execution and wait for human response automatically.
 - Example: decision = request_confirmation(..., action="Submit $500 payment", risks="Charges credit card", ...)
 
 Use these tools proactively when you need help - it's better to ask than to fail silently.
-The agent will automatically pause and resume when the human responds.
+The agent will automatically pause and resume when the human responds."""
 
 
 RALPH_MODE_REFLECTION_PROMPT = """Review your previous attempt. If successful, summarize the results. 
