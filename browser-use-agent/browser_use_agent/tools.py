@@ -79,6 +79,97 @@ BROWSER_TIMEOUT_SECONDS = 300  # 5 minutes
 _cleanup_thread: Optional[threading.Thread] = None
 _cleanup_running = False
 
+# Daemon management
+_daemon_cleanup_lock = threading.Lock()
+_last_daemon_cleanup: Optional[datetime] = None
+DAEMON_CLEANUP_INTERVAL_SECONDS = 60  # Only cleanup once per minute max
+
+
+def _cleanup_stale_daemons(force: bool = False) -> None:
+    """Clean up stale agent-browser daemon processes.
+
+    This helps prevent "Daemon failed to start" errors caused by:
+    - Orphaned daemon processes from previous sessions
+    - Resource contention from too many running daemons
+    - Socket file conflicts
+
+    Args:
+        force: If True, bypass the cleanup interval check
+    """
+    global _last_daemon_cleanup
+
+    with _daemon_cleanup_lock:
+        # Rate limit cleanup to avoid overhead
+        if not force and _last_daemon_cleanup:
+            elapsed = (datetime.now() - _last_daemon_cleanup).total_seconds()
+            if elapsed < DAEMON_CLEANUP_INTERVAL_SECONDS:
+                return
+
+        try:
+            # Find all agent-browser daemon processes
+            result = subprocess.run(
+                ["pgrep", "-f", "agent-browser.*daemon"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                daemon_count = len(pids)
+
+                # If there are many daemons, clean up the oldest ones
+                # Keep at most 3 daemon processes
+                if daemon_count > 3:
+                    print(f"[Daemon Cleanup] Found {daemon_count} daemon processes, cleaning up excess...")
+
+                    # Get process info with start times
+                    ps_result = subprocess.run(
+                        ["ps", "-o", "pid,etime", "-p", ",".join(pids)],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+
+                    if ps_result.returncode == 0:
+                        lines = ps_result.stdout.strip().split('\n')[1:]  # Skip header
+                        processes = []
+                        for line in lines:
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                pid = parts[0]
+                                etime = parts[1]
+                                processes.append((pid, etime))
+
+                        # Sort by elapsed time (oldest first) and kill excess
+                        # etime format: [[dd-]hh:]mm:ss
+                        processes_to_kill = processes[:-3] if len(processes) > 3 else []
+
+                        for pid, etime in processes_to_kill:
+                            try:
+                                subprocess.run(
+                                    ["kill", "-TERM", pid],
+                                    capture_output=True,
+                                    timeout=2
+                                )
+                                print(f"[Daemon Cleanup] Terminated stale daemon PID {pid} (uptime: {etime})")
+                            except Exception as e:
+                                print(f"[Daemon Cleanup] Failed to kill PID {pid}: {e}")
+
+                        if processes_to_kill:
+                            # Give processes time to terminate gracefully
+                            time.sleep(0.5)
+
+            _last_daemon_cleanup = datetime.now()
+
+        except subprocess.TimeoutExpired:
+            print("[Daemon Cleanup] Timeout while checking daemon processes")
+        except FileNotFoundError:
+            # pgrep not available on this system
+            pass
+        except Exception as e:
+            print(f"[Daemon Cleanup] Error during cleanup: {e}")
+
 
 def _run_browser_command(
     thread_id: str,
@@ -304,6 +395,9 @@ def browser_navigate(url: str, thread_id: str) -> str:
 
     # Start cleanup thread if not running
     _start_cleanup_thread()
+
+    # Clean up stale daemon processes to prevent "Daemon failed to start" errors
+    _cleanup_stale_daemons()
 
     # This is usually the first command, so set stream port
     result = _run_browser_command(

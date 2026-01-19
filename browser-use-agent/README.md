@@ -2,12 +2,6 @@
 
 A browser automation agent built with [DeepAgents](https://docs.langchain.com/oss/python/deepagents/overview) and [agent-browser](https://agent-browser.dev/), featuring Ralph Mode for iterative task refinement.
 
-## Recent Updates
-
-### v4.4 - Credential Handling & CDP Support
-- **Smart Credential Handling**: Agent now uses credentials provided directly in chat instead of repeatedly prompting via `request_credentials` tool. Previously, the agent would call `request_credentials` even when users provided credentials in the conversation, causing an infinite loop.
-- **CDP Support**: New option to connect to an existing Chrome browser via Chrome DevTools Protocol instead of launching isolated sessions. Useful for debugging or reusing authenticated sessions.
-
 ## Features
 
 - 🤖 **DeepAgents Integration**: Built on LangChain's DeepAgents framework
@@ -19,6 +13,7 @@ A browser automation agent built with [DeepAgents](https://docs.langchain.com/os
 - 🔐 **Selective Approval**: User approval for sensitive browser actions
 - 📺 **Live Streaming**: WebSocket-based browser viewport streaming
 - 🧵 **Multi-threading**: Isolated browser sessions per thread
+- 🧹 **Daemon Lifecycle Management**: Automatic cleanup of stale daemon processes
 
 ## Architecture
 
@@ -299,8 +294,14 @@ Config.validate()
 
 ## Troubleshooting
 
+### "Daemon failed to start" Error
+This error occurs when `agent-browser` cannot start its daemon process, usually due to:
+- **Too many daemon processes**: The system automatically cleans up excess daemons (keeps max 3), but you can manually check: `pgrep -f "agent-browser.*daemon"`
+- **Stale processes**: Kill all daemons and retry: `pkill -f "agent-browser.*daemon"`
+- **Port conflicts**: Check if ports are in use: `lsof -i :9222-9230`
+
 ### Browser Not Starting
-- Verify `agent-browser` is installed: `agent-browser --version`
+- Verify `agent-browser` is installed: `agent-browser --help`
 - Check port availability: `lsof -i :9223`
 
 ### Import Errors
