@@ -615,23 +615,80 @@ def browser_hover(ref: str, thread_id: str) -> str:
 
 
 @tool
-def browser_close(thread_id: str) -> str:
-    """Close the browser session and stop streaming.
-    
+def browser_back(thread_id: str) -> str:
+    """Go back to the previous page in browser history.
+
     Args:
         thread_id: Thread identifier for session isolation
-        
+
+    Returns:
+        str: Navigation result
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["back"])
+
+    if result["success"]:
+        return "Successfully navigated back in browser history"
+    else:
+        return f"Failed to navigate back: {result['error']}"
+
+
+@tool
+def browser_forward(thread_id: str) -> str:
+    """Go forward to the next page in browser history.
+
+    Args:
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        str: Navigation result
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["forward"])
+
+    if result["success"]:
+        return "Successfully navigated forward in browser history"
+    else:
+        return f"Failed to navigate forward: {result['error']}"
+
+
+@tool
+def browser_reload(thread_id: str) -> str:
+    """Reload the current page.
+
+    Args:
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        str: Reload result
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["reload"])
+
+    if result["success"]:
+        return "Successfully reloaded the page"
+    else:
+        return f"Failed to reload page: {result['error']}"
+
+
+@tool
+def browser_close(thread_id: str) -> str:
+    """Close the browser session and stop streaming.
+
+    Args:
+        thread_id: Thread identifier for session isolation
+
     Returns:
         str: Close result
     """
     result = _run_browser_command(thread_id, ["close"])
-    
+
     # Release the stream port
     stream_manager.release_port(thread_id)
-    
+
     # Mark session as inactive
     _update_browser_session(thread_id, is_active=False)
-    
+
     if result["success"]:
         return "Browser session closed successfully"
     else:
@@ -657,5 +714,8 @@ BROWSER_TOOLS = [
     browser_cookies_set,
     browser_wait_time,
     browser_hover,
+    browser_back,
+    browser_forward,
+    browser_reload,
     browser_close,
 ]
