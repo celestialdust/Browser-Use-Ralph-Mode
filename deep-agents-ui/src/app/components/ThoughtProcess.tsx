@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronUp, Brain } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ThoughtStep } from "@/app/types/types";
@@ -170,8 +171,8 @@ function ThoughtStepItem({ step, isStreaming }: { step: ThoughtStep; isStreaming
           </button>
         )}
         <div className={cn("flex-1", step.level > 0 && "border-l-2 border-border pl-3")}>
-          <span className="text-sm text-muted-foreground">
-            {step.content}
+          <span className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert">
+            <ReactMarkdown>{step.content}</ReactMarkdown>
             {isStreaming && step.status === "streaming" && <BlinkingCursor />}
           </span>
         </div>
@@ -285,8 +286,8 @@ export function ThoughtProcess({
               ))}
             </div>
           ) : (
-            <div className="whitespace-pre-wrap">
-              {displayedContent}
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown>{displayedContent}</ReactMarkdown>
               {isStreaming && !streamComplete && <BlinkingCursor />}
             </div>
           )}

@@ -14,6 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { StandaloneConfig } from "@/lib/config";
+import { X } from "lucide-react";
+
+// Skill type for the skill management UI
+interface Skill {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
 
 interface ConfigDialogProps {
   open: boolean;
@@ -46,9 +54,42 @@ export function ConfigDialog({
   const [browserStreamPort, setBrowserStreamPort] = useState(
     initialConfig?.browserStreamPort ?? 9223
   );
-  const [recursionLimit, setRecursionLimit] = useState(
-    initialConfig?.recursionLimit ?? 200
-  );
+  // Skills state - loaded from localStorage
+  const [skills, setSkills] = useState<Skill[]>([]);
+
+  // Load skills from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedSkills = localStorage.getItem("browser-agent-skills");
+      if (savedSkills) {
+        setSkills(JSON.parse(savedSkills));
+      }
+    } catch (e) {
+      console.error("Failed to load skills from localStorage:", e);
+    }
+  }, []);
+
+  // Save skills to localStorage when they change
+  const saveSkills = (updatedSkills: Skill[]) => {
+    setSkills(updatedSkills);
+    try {
+      localStorage.setItem("browser-agent-skills", JSON.stringify(updatedSkills));
+    } catch (e) {
+      console.error("Failed to save skills to localStorage:", e);
+    }
+  };
+
+  const toggleSkill = (skillName: string) => {
+    const updatedSkills = skills.map((skill) =>
+      skill.name === skillName ? { ...skill, enabled: !skill.enabled } : skill
+    );
+    saveSkills(updatedSkills);
+  };
+
+  const deleteSkill = (skillName: string) => {
+    const updatedSkills = skills.filter((skill) => skill.name !== skillName);
+    saveSkills(updatedSkills);
+  };
 
   useEffect(() => {
     if (open && initialConfig) {
@@ -58,7 +99,6 @@ export function ConfigDialog({
       setRalphModeEnabled(initialConfig.ralphModeEnabled ?? false);
       setRalphMaxIterations(initialConfig.ralphMaxIterations ?? 5);
       setBrowserStreamPort(initialConfig.browserStreamPort ?? 9223);
-      setRecursionLimit(initialConfig.recursionLimit ?? 200);
     }
   }, [open, initialConfig]);
 
@@ -75,7 +115,6 @@ export function ConfigDialog({
       ralphModeEnabled,
       ralphMaxIterations,
       browserStreamPort,
-      recursionLimit,
     });
     onOpenChange(false);
   };
@@ -178,28 +217,6 @@ export function ConfigDialog({
                 Number of refinement iterations (1-20)
               </p>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="recursionLimit">
-                Recursion Limit
-              </Label>
-              <Input
-                id="recursionLimit"
-                type="number"
-                min="50"
-                max="500"
-                placeholder="200"
-                value={recursionLimit}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val >= 50 && val <= 500) {
-                    setRecursionLimit(val);
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Maximum agent reasoning steps (50-500). Increase for complex tasks.
-              </p>
-            </div>
           </div>
 
           {/* Browser Settings */}
@@ -229,6 +246,53 @@ export function ConfigDialog({
                 WebSocket port for browser viewport streaming
               </p>
             </div>
+          </div>
+
+          {/* Skills Section */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Skills</h3>
+            <div className="border border-border rounded-md divide-y divide-border max-h-40 overflow-y-auto">
+              {skills.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">
+                  No skills created yet
+                </div>
+              ) : (
+                skills.map((skill) => (
+                  <div
+                    key={skill.name}
+                    className="flex items-center justify-between p-2 text-sm"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={skill.enabled}
+                        onChange={() => toggleSkill(skill.name)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">{skill.name}</span>
+                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                          {skill.description.length > 50
+                            ? `${skill.description.substring(0, 50)}...`
+                            : skill.description}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteSkill(skill.name)}
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+                      aria-label={`Delete ${skill.name}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Skills are reusable workflows learned by the agent. Toggle to enable/disable.
+            </p>
           </div>
         </div>
         <DialogFooter>

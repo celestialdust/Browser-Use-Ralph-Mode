@@ -16,9 +16,12 @@ import {
   Clock,
   Circle,
   FileIcon,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { ChatMessage } from "@/app/components/ChatMessage";
 import { BrowserCommandApproval } from "@/app/components/BrowserCommandApproval";
+import { ErrorBanner } from "@/app/components/ErrorBanner";
 import type {
   TodoItem,
   ToolCall,
@@ -68,6 +71,12 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [input, setInput] = useState("");
+  const [attachedImage, setAttachedImage] = useState<{
+    data: string;  // base64 data URL
+    name: string;
+    type: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { scrollRef, contentRef } = useStickToBottom();
 
   const {
@@ -86,6 +95,9 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     browserSession,
     approvalQueue,
     currentThought,
+    chatError,
+    clearError,
+    retryLastMessage,
   } = useChatContext();
 
   const submitDisabled = isLoading || !assistant;
@@ -116,17 +128,61 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     [resumeInterrupt]
   );
 
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select an image file");
+        return;
+      }
+
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachedImage({
+          data: reader.result as string,
+          name: file.name,
+          type: file.type,
+        });
+      };
+      reader.readAsDataURL(file);
+
+      // Clear input for re-selection
+      e.target.value = "";
+    },
+    []
+  );
+
   const handleSubmit = useCallback(
     (e?: FormEvent) => {
       if (e) {
         e.preventDefault();
       }
-      const messageText = input.trim();
-      if (!messageText || isLoading || submitDisabled) return;
-      sendMessage(messageText);
+      const trimmedInput = input.trim();
+      if ((!trimmedInput && !attachedImage) || isLoading || submitDisabled) return;
+
+      // Build message content
+      let content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> = trimmedInput;
+
+      if (attachedImage) {
+        // Multimodal message format
+        content = [
+          { type: "text", text: trimmedInput || "Please analyze this image." },
+          {
+            type: "image_url",
+            image_url: { url: attachedImage.data },
+          },
+        ];
+      }
+
+      sendMessage(content);
       setInput("");
+      setAttachedImage(null);
     },
-    [input, isLoading, sendMessage, setInput, submitDisabled]
+    [input, attachedImage, isLoading, sendMessage, submitDisabled]
   );
 
   const handleKeyDown = useCallback(
@@ -342,6 +398,19 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
       )}
 
       <div className="flex-shrink-0 bg-background">
+        {/* Error Banner */}
+        {chatError && (
+          <div className="mx-auto w-[calc(100%-32px)] max-w-[1024px] mb-2">
+            <ErrorBanner
+              type={chatError.type}
+              message={chatError.message}
+              details={chatError.details}
+              onRetry={chatError.retryable ? retryLastMessage : undefined}
+              onDismiss={clearError}
+            />
+          </div>
+        )}
+
         <div
           className={cn(
             "mx-4 mb-6 flex flex-shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background",
@@ -559,22 +628,68 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
             onSubmit={handleSubmit}
             className="flex flex-col"
           >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isLoading ? "Running..." : "Write your message..."}
-              className="font-inherit field-sizing-content flex-1 resize-none border-0 bg-transparent px-[18px] pb-[13px] pt-[14px] text-sm leading-7 text-primary outline-none placeholder:text-tertiary"
-              rows={1}
-            />
+            {/* Image preview above input */}
+            {attachedImage && (
+              <div className="border-b border-border px-[18px] py-3 flex items-center gap-3">
+                <img
+                  src={attachedImage.data}
+                  alt={attachedImage.name}
+                  className="h-20 w-auto object-contain rounded border border-border"
+                />
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <span className="text-sm text-primary truncate">{attachedImage.name}</span>
+                  <span className="text-xs text-muted-foreground">{attachedImage.type}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachedImage(null)}
+                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                  aria-label="Remove image"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+            <div className="flex items-start gap-2 px-[18px] pt-[14px]">
+              {/* Upload button - left of textarea */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachedImage !== null}
+                className={cn(
+                  "p-2 rounded transition-colors flex-shrink-0",
+                  attachedImage
+                    ? "opacity-50 cursor-not-allowed text-muted-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-primary"
+                )}
+                aria-label="Attach image"
+              >
+                <Paperclip size={18} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isLoading ? "Running..." : "Write your message..."}
+                className="font-inherit field-sizing-content flex-1 resize-none border-0 bg-transparent pb-[13px] text-sm leading-7 text-primary outline-none placeholder:text-tertiary"
+                rows={1}
+              />
+            </div>
             <div className="flex justify-between gap-2 p-3">
               <div className="flex justify-end gap-2">
                 <Button
                   type={isLoading ? "button" : "submit"}
                   variant={isLoading ? "destructive" : "default"}
                   onClick={isLoading ? stopStream : handleSubmit}
-                  disabled={!isLoading && (submitDisabled || !input.trim())}
+                  disabled={!isLoading && (submitDisabled || (!input.trim() && !attachedImage))}
                 >
                   {isLoading ? (
                     <>

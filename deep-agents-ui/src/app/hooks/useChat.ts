@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import {
   type Message,
@@ -12,6 +12,80 @@ import type { UseStreamThread } from "@langchain/langgraph-sdk/react";
 import type { TodoItem, BrowserSession, BrowserCommand, ThoughtProcess } from "@/app/types/types";
 import { useClient } from "@/providers/ClientProvider";
 import { useQueryState } from "nuqs";
+import { RECURSION_LIMIT } from "@/lib/config";
+
+// Error types for user-friendly messages
+export type ErrorType = "warning" | "error" | "info";
+
+export interface ChatError {
+  type: ErrorType;
+  message: string;
+  details?: string;
+  retryable: boolean;
+}
+
+// Helper to parse and categorize errors
+function parseError(error: Error | string): ChatError {
+  const errorMessage = typeof error === "string" ? error : error.message || String(error);
+
+  // Recursion limit errors
+  if (errorMessage.includes("recursion") || errorMessage.includes("limit") || errorMessage.includes("maximum") || errorMessage.includes("exceeded")) {
+    return {
+      type: "warning",
+      message: "Agent reached maximum iterations. You can retry or provide more guidance.",
+      details: errorMessage,
+      retryable: true,
+    };
+  }
+
+  // Authentication errors
+  if (errorMessage.includes("401") || errorMessage.includes("unauthorized") || errorMessage.includes("authentication")) {
+    return {
+      type: "error",
+      message: "Authentication failed. Please check your API key.",
+      details: errorMessage,
+      retryable: false,
+    };
+  }
+
+  // Server errors
+  if (errorMessage.includes("500") || errorMessage.includes("internal server")) {
+    return {
+      type: "error",
+      message: "Server error occurred. Please try again.",
+      details: errorMessage,
+      retryable: true,
+    };
+  }
+
+  // Service unavailable (transient)
+  if (errorMessage.includes("503") || errorMessage.includes("service unavailable")) {
+    return {
+      type: "warning",
+      message: "Service temporarily unavailable. Retrying...",
+      details: errorMessage,
+      retryable: true,
+    };
+  }
+
+  // Network/timeout errors
+  if (errorMessage.includes("timeout") || errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("fetch")) {
+    return {
+      type: "error",
+      message: "Connection error. Please check your network and try again.",
+      details: errorMessage,
+      retryable: true,
+    };
+  }
+
+  // Default error
+  return {
+    type: "error",
+    message: errorMessage || "An unexpected error occurred.",
+    details: errorMessage,
+    retryable: true,
+  };
+}
 
 export type StateType = {
   messages: Message[];
@@ -32,7 +106,7 @@ export function useChat({
   activeAssistant,
   onHistoryRevalidate,
   thread,
-  recursionLimit = 200,
+  recursionLimit = RECURSION_LIMIT,
   browserStreamPort = 9223,
 }: {
   activeAssistant: Assistant | null;
@@ -44,6 +118,25 @@ export function useChat({
   const [threadId, setThreadId] = useQueryState("threadId");
   const client = useClient();
   const [browserSession, setBrowserSession] = useState<BrowserSession | null>(null);
+  const [chatError, setChatError] = useState<ChatError | null>(null);
+  const retryCountRef = useRef(0);
+  const lastInputRef = useRef<string | null>(null);
+
+  // Error handler - stops stream and displays error to user
+  const handleStreamError = useCallback((error: unknown) => {
+    console.error("[useChat] Stream error:", error);
+
+    // Convert unknown to Error or string for parseError
+    const errorValue = error instanceof Error ? error : String(error);
+    const parsedError = parseError(errorValue);
+    setChatError(parsedError);
+
+    // Don't auto-retry here - let user manually retry via ErrorBanner
+    // This avoids circular dependency issues and gives user control
+    retryCountRef.current = 0;
+
+    onHistoryRevalidate?.();
+  }, [onHistoryRevalidate]);
 
   const stream = useStream<StateType>({
     assistantId: activeAssistant?.assistant_id || "",
@@ -55,8 +148,11 @@ export function useChat({
     // Enable fetching state history when switching to existing threads
     fetchStateHistory: true,
     // Revalidate thread list when stream finishes, errors, or creates new thread
-    onFinish: onHistoryRevalidate,
-    onError: onHistoryRevalidate,
+    onFinish: () => {
+      retryCountRef.current = 0; // Reset retry count on successful finish
+      onHistoryRevalidate?.();
+    },
+    onError: handleStreamError,
     onCreated: onHistoryRevalidate,
     experimental_thread: thread,
   });
@@ -132,9 +228,18 @@ export function useChat({
     }
   }, [stream.messages, stream.values.browser_session, threadId, browserStreamPort]);
 
+  // ChatContent can be a string or an array of content blocks (for multimodal messages with images)
+  type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+
   const sendMessage = useCallback(
-    (content: string) => {
-      const newMessage: Message = { id: uuidv4(), type: "human", content };
+    (content: ChatContent) => {
+      // Clear any previous errors
+      setChatError(null);
+      retryCountRef.current = 0;
+      lastInputRef.current = typeof content === "string" ? content : JSON.stringify(content);
+
+      // Cast to any to allow multimodal content - the SDK handles various content types
+      const newMessage: Message = { id: uuidv4(), type: "human", content: content as any };
       stream.submit(
         { messages: [newMessage] },
         {
@@ -149,6 +254,19 @@ export function useChat({
     },
     [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit]
   );
+
+  const clearError = useCallback(() => {
+    setChatError(null);
+    retryCountRef.current = 0;
+  }, []);
+
+  const retryLastMessage = useCallback(() => {
+    if (lastInputRef.current) {
+      setChatError(null);
+      retryCountRef.current = 0;
+      sendMessage(lastInputRef.current);
+    }
+  }, [sendMessage]);
 
   const runSingleStep = useCallback(
     (
@@ -245,5 +363,9 @@ export function useChat({
     stopStream,
     markCurrentThreadAsResolved,
     resumeInterrupt,
+    // Error handling
+    chatError,
+    clearError,
+    retryLastMessage,
   };
 }

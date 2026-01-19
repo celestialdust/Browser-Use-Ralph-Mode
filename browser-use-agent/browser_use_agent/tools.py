@@ -12,9 +12,62 @@ import subprocess
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from langchain.tools import tool
 from browser_use_agent.utils import stream_manager
+
+# Maximum output size before saving to filesystem (in characters)
+MAX_OUTPUT_SIZE = 1000
+
+
+def _save_large_output(content: str, thread_id: str, output_type: str) -> str:
+    """Save large output to filesystem and return a reference.
+
+    Args:
+        content: The large content to save
+        thread_id: Thread identifier for organizing files
+        output_type: Type of output (e.g., 'snapshot', 'console')
+
+    Returns:
+        Message with file path reference
+    """
+    from browser_use_agent.storage.config import StorageConfig
+
+    # Create artifacts directory
+    agent_dir = StorageConfig.get_agent_dir()
+    artifacts_dir = agent_dir / "artifacts" / "tool_outputs"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{output_type}_{thread_id[:8]}_{timestamp}.json"
+    filepath = artifacts_dir / filename
+
+    # Save content
+    filepath.write_text(content)
+
+    return str(filepath)
+
+
+def _handle_output(content: str, thread_id: str, output_type: str) -> str:
+    """Handle tool output - return directly if small, save to file if large.
+
+    Args:
+        content: The content to handle
+        thread_id: Thread identifier
+        output_type: Type of output for filename
+
+    Returns:
+        Content directly if small, or file reference if large
+    """
+    if len(content) <= MAX_OUTPUT_SIZE:
+        return content
+
+    filepath = _save_large_output(content, thread_id, output_type)
+    # Return a summary with file reference
+    preview = content[:200] + "..." if len(content) > 200 else content
+    return f"[Output saved to file: {filepath}]\n\nPreview (first 200 chars):\n{preview}\n\nUse read_file tool to access full content."
 
 # Global storage for browser session state (thread-safe using dict keyed by thread_id)
 _browser_sessions: Dict[str, Dict[str, Any]] = {}
@@ -242,8 +295,10 @@ def browser_navigate(url: str, thread_id: str) -> str:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        Navigation result and stream URL
+        Structured output with action, observation, next_step, filepath
     """
+    from browser_use_agent.models import BrowserToolOutput
+
     # Start cleanup thread if not running
     _start_cleanup_thread()
 
@@ -267,7 +322,21 @@ def browser_navigate(url: str, thread_id: str) -> str:
         # Mark session as active and update last activity
         _update_browser_session(thread_id, is_active=True, update_last_activity=True)
         print(f"[Browser Navigate] Session {thread_id[:8]}... → Stream: {stream_url}")
-        return f"Successfully navigated to {url}. Browser stream available at {stream_url}"
+
+        # Save full output to file
+        filepath = _save_large_output(
+            f"Navigated to {url}\nStream URL: {stream_url}\nStream ready: {stream_ready}",
+            thread_id,
+            "navigate"
+        )
+
+        output = BrowserToolOutput(
+            action=f"Navigated to {url}",
+            observation=f"Page loaded. Browser stream available at {stream_url}",
+            next_step="Take browser_snapshot to see available elements and their @refs",
+            filepath=filepath
+        )
+        return output.to_string()
     else:
         return f"Failed to navigate: {result['error']}"
 
@@ -281,8 +350,10 @@ def browser_snapshot(thread_id: str, interactive_only: bool = True) -> str:
         interactive_only: If True, only return interactive elements
 
     Returns:
-        JSON snapshot with element refs (@e1, @e2, etc.)
+        Structured output with action, observation, next_step, filepath
     """
+    from browser_use_agent.models import BrowserToolOutput
+
     command = ["snapshot", "--json"]
     if interactive_only:
         command.append("-i")
@@ -291,11 +362,34 @@ def browser_snapshot(thread_id: str, interactive_only: bool = True) -> str:
 
     if result["success"]:
         try:
-            # Parse JSON to pretty print
             snapshot_data = json.loads(result["output"])
-            return json.dumps(snapshot_data, indent=2)
+            output_str = json.dumps(snapshot_data, indent=2)
+
+            # Count elements
+            element_count = len(snapshot_data) if isinstance(snapshot_data, list) else "unknown"
+
+            # Save full snapshot to file
+            filepath = _save_large_output(output_str, thread_id, "snapshot")
+
+            # Create preview (first 500 chars or summary)
+            preview = output_str[:500] + "..." if len(output_str) > 500 else output_str
+
+            output = BrowserToolOutput(
+                action="Captured DOM snapshot",
+                observation=f"Found {element_count} interactive elements. Elements have @refs like @e1, @e2.",
+                next_step="Use @refs to interact: browser_click(@e1), browser_fill(@e2, 'text')",
+                filepath=filepath
+            )
+            return output.to_string() + f"\n\nPreview:\n{preview}"
         except json.JSONDecodeError:
-            return result["output"]
+            filepath = _save_large_output(result["output"], thread_id, "snapshot")
+            output = BrowserToolOutput(
+                action="Captured DOM snapshot",
+                observation="Snapshot captured but not in JSON format",
+                next_step="Use read_file to examine full snapshot content",
+                filepath=filepath
+            )
+            return output.to_string()
     else:
         return f"Failed to get snapshot: {result['error']}"
 
@@ -309,13 +403,27 @@ def browser_click(ref: str, thread_id: str) -> str:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        Click result
+        Structured output with action, observation, next_step, filepath
     """
+    from browser_use_agent.models import BrowserToolOutput
+
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["click", ref])
 
+    filepath = _save_large_output(
+        result["output"] if result["success"] else result["error"],
+        thread_id,
+        "click"
+    )
+
     if result["success"]:
-        return f"Successfully clicked {ref}"
+        output = BrowserToolOutput(
+            action=f"Clicked {ref}",
+            observation="Click successful. Page state may have changed.",
+            next_step="Take browser_snapshot to see updated elements (refs may have changed)",
+            filepath=filepath
+        )
+        return output.to_string()
     else:
         return f"Failed to click {ref}: {result['error']}"
 
@@ -383,12 +491,12 @@ def browser_press_key(key: str, thread_id: str) -> str:
 
 
 @tool
-def browser_screenshot(thread_id: str, filename: Optional[str] = None) -> str:
+def browser_screenshot(thread_id: str, filename: str = None) -> str:
     """Take a screenshot of the current page.
 
     Args:
         thread_id: Thread identifier for session isolation
-        filename: Optional filename to save to (if None, returns base64)
+        filename: filename to save to 
 
     Returns:
         Screenshot result or base64 data
@@ -415,56 +523,56 @@ def browser_screenshot(thread_id: str, filename: Optional[str] = None) -> str:
 
 
 @tool
-def browser_wait(
-    condition: str,
-    value: str,
-    _timeout: int = 30,
-    thread_id: str = "default"
+def browser_scroll(
+    direction: str,
+    thread_id: str,
+    amount: int = 500
 ) -> str:
-    """Wait for a condition to be met.
+    """Scroll the page to load dynamic content or reach elements.
 
     Args:
-        condition: Type of wait ('element', 'text', 'url', 'load', 'time')
-        value: Value to wait for (element ref, text, URL pattern, or seconds for time)
-        _timeout: Maximum wait time in seconds (default 30, reserved for future use)
+        direction: Scroll direction - 'up', 'down', 'top', 'bottom'
         thread_id: Thread identifier for session isolation
+        amount: Pixels to scroll (ignored for 'top'/'bottom')
 
     Returns:
-        Success message or error
-
-    Examples:
-        browser_wait('element', '@e1', 10, thread_id) - Wait for element @e1
-        browser_wait('text', 'Success', 5, thread_id) - Wait for text "Success"
-        browser_wait('load', 'domcontentloaded', 30, thread_id) - Wait for page load
-        browser_wait('time', '2', 2, thread_id) - Wait for 2 seconds
+        Structured output with action, observation, next_step, filepath
     """
+    from browser_use_agent.models import BrowserToolOutput
+
     _update_activity(thread_id)
 
-    # Build wait command based on condition type
-    # Note: _timeout parameter is reserved for future use, agent-browser uses default timeout
-    if condition == 'element':
-        # Wait for element to appear
-        cmd = ["wait", value]
-    elif condition == 'text':
-        # Wait for text to appear
-        cmd = ["wait", "--text", value]
-    elif condition == 'url':
-        # Wait for URL pattern
-        cmd = ["wait", "--url", value]
-    elif condition == 'load':
-        # Wait for load state (load, domcontentloaded, networkidle)
-        cmd = ["wait", "--load", value]
-    elif condition == 'time':
-        # Wait for specified milliseconds (value should be in seconds, convert to ms)
-        ms = int(float(value) * 1000)
-        cmd = ["wait", str(ms)]
+    # Map direction to agent-browser scroll command
+    if direction == "top":
+        cmd = ["eval", "window.scrollTo(0, 0)"]
+    elif direction == "bottom":
+        cmd = ["eval", "window.scrollTo(0, document.body.scrollHeight)"]
+    elif direction == "down":
+        cmd = ["eval", f"window.scrollBy(0, {amount})"]
+    elif direction == "up":
+        cmd = ["eval", f"window.scrollBy(0, -{amount})"]
     else:
-        return f"✗ Invalid condition type: {condition}. Use: element, text, url, load, or time"
+        return f"Invalid direction: {direction}. Use: up, down, top, bottom"
 
     result = _run_browser_command(thread_id, cmd)
+
     if result["success"]:
-        return f"✓ Wait condition met: {condition}={value}\n{result['output']}"
-    return f"✗ Wait timeout or error: {result['error']}"
+        # Save full output to file
+        filepath = _save_large_output(
+            result["output"] or f"Scrolled {direction}",
+            thread_id,
+            "scroll"
+        )
+
+        output = BrowserToolOutput(
+            action=f"Scrolled {direction}" + (f" {amount}px" if direction in ["up", "down"] else ""),
+            observation="Page scrolled successfully. New content may have loaded.",
+            next_step="Take browser_snapshot to see newly visible elements",
+            filepath=filepath
+        )
+        return output.to_string()
+    else:
+        return f"Failed to scroll: {result['error']}"
 
 
 @tool
@@ -566,7 +674,8 @@ def browser_get_info(info_type: str, thread_id: str, ref: Optional[str] = None) 
         ref: Optional element reference (required for text, html, value, attr)
 
     Returns:
-        Requested information
+        Requested information.
+        If output is large (>1000 chars), saves to file and returns reference.
     """
     command = ["get", info_type]
     if ref:
@@ -575,61 +684,10 @@ def browser_get_info(info_type: str, thread_id: str, ref: Optional[str] = None) 
     result = _run_browser_command(thread_id, command)
 
     if result["success"]:
-        return result["output"].strip()
+        output = result["output"].strip()
+        return _handle_output(output, thread_id, f"get_{info_type}")
     else:
         return f"Failed to get {info_type}: {result['error']}"
-
-
-# ============================================================================
-# Check State Commands
-# ============================================================================
-
-@tool
-def browser_is_visible(ref: str, thread_id: str) -> str:
-    """Check if an element is visible.
-
-    Args:
-        ref: Element reference
-        thread_id: Thread identifier for session isolation
-
-    Returns:
-        "true" or "false"
-    """
-    result = _run_browser_command(thread_id, ["is", "visible", ref])
-    return result["output"].strip() if result["success"] else "false"
-
-
-@tool
-def browser_is_enabled(ref: str, thread_id: str) -> str:
-    """Check if an element is enabled.
-
-    Args:
-        ref: Element reference
-        thread_id: Thread identifier for session isolation
-
-    Returns:
-        "true" or "false"
-    """
-    result = _run_browser_command(thread_id, ["is", "enabled", ref])
-    return result["output"].strip() if result["success"] else "false"
-
-
-@tool
-def browser_is_checked(ref: str, thread_id: str) -> str:
-    """Check if a checkbox or radio button is checked.
-
-    Args:
-        ref: Element reference (@e1, @e2, etc.)
-        thread_id: Thread identifier for session isolation
-
-    Returns:
-        "true" if checked, "false" if not checked, or error message
-    """
-    result = _run_browser_command(thread_id, ["is", "checked", ref])
-    if result["success"]:
-        output = result["output"].strip().lower()
-        return "true" if "true" in output or "checked" in output else "false"
-    return f"✗ Failed to check state: {result['error']}"
 
 
 # ============================================================================
@@ -644,16 +702,21 @@ def browser_console(thread_id: str) -> str:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        Console output or error message
+        Console output or error message.
+        If output is large (>1000 chars), saves to file and returns reference.
     """
     result = _run_browser_command(thread_id, ["console"])
     if result["success"]:
-        return f"Console logs:\n{result['output']}"
+        output = f"Console logs:\n{result['output']}"
+        return _handle_output(output, thread_id, "console")
     return f"✗ Failed to get console logs: {result['error']}"
 
 
 # Import human-in-the-loop tools
 from browser_use_agent.human_loop import HUMAN_LOOP_TOOLS
+
+# Import reflection tools
+from browser_use_agent.reflection import REFLECTION_TOOLS
 
 # Export all tools
 BROWSER_TOOLS = [
@@ -665,7 +728,7 @@ BROWSER_TOOLS = [
     browser_type,
     browser_press_key,
     browser_screenshot,
-    browser_wait,
+    browser_scroll,
     browser_close,
     # Navigation
     browser_back,
@@ -673,12 +736,10 @@ BROWSER_TOOLS = [
     browser_reload,
     # Get info
     browser_get_info,
-    # Check state
-    browser_is_visible,
-    browser_is_enabled,
-    browser_is_checked,
     # Debug
     browser_console,
     # Human-in-the-loop tools
     *HUMAN_LOOP_TOOLS,
+    # Reflection tools
+    *REFLECTION_TOOLS,
 ]

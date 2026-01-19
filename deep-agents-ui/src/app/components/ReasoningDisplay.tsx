@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Brain, ChevronDown, ChevronUp } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 /**
  * Summary item from the reasoning API response.
@@ -47,9 +48,9 @@ export function ReasoningDisplay({ summaries }: ReasoningDisplayProps) {
         className="flex items-center gap-2 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+        <Brain className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         <span className="text-sm font-medium flex-1">
-          {isExpanded ? "Hide" : "Show"} thinking process
+          Thought process
         </span>
         {isExpanded ? (
           <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -71,9 +72,9 @@ export function ReasoningDisplay({ summaries }: ReasoningDisplayProps) {
           {summaries.map((summary, index) => (
             <div
               key={index}
-              className="text-sm text-foreground/90 whitespace-pre-wrap border-l-2 border-primary/30 pl-3"
+              className="text-sm text-foreground/90 border-l-2 border-primary/30 pl-3 prose prose-sm max-w-none dark:prose-invert"
             >
-              {summary.text}
+              <ReactMarkdown>{summary.text}</ReactMarkdown>
             </div>
           ))}
         </div>

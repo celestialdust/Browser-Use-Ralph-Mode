@@ -3,20 +3,101 @@
 import uuid
 from typing import Any, Dict, List, Optional
 from langchain_core.messages import HumanMessage
-
-try:
-    from deepagents import create_deep_agent
-    from deepagents.backends import FilesystemBackend
-except ImportError:
-    print("Error: deepagents library not installed. Please run:")
-    print("  uv pip install deepagents")
-    raise
+from deepagents import create_deep_agent
+from deepagents.backends import FilesystemBackend
 
 from browser_use_agent.configuration import get_llm, Config
 from browser_use_agent.prompts import get_system_prompt, RALPH_MODE_REFLECTION_PROMPT
 from browser_use_agent.state import AgentState, create_initial_state
 from browser_use_agent.tools import BROWSER_TOOLS
 from browser_use_agent.storage import get_checkpoint_saver, StorageConfig
+
+
+def _load_context_files(agent_dir) -> str:
+    """Load context files and return them as formatted string sections.
+
+    Loads:
+    - AGENTS.md as <project_memory>
+    - agent.md as <agent_memory>
+    - Skills metadata (names/descriptions only) as <skills>
+
+    Args:
+        agent_dir: Path to the .browser-agent directory
+
+    Returns:
+        Formatted context string to append to system prompt
+    """
+    import yaml
+    from pathlib import Path
+
+    context_sections = []
+
+    # Load AGENTS.md (project memory - synthesized rules)
+    agents_md_path = agent_dir / "memory" / "AGENTS.md"
+    if agents_md_path.exists():
+        try:
+            content = agents_md_path.read_text()
+            # Only include if there's actual content beyond the template
+            if content.strip() and len(content) > 200:
+                context_sections.append(f"<project_memory>\n{content}\n</project_memory>")
+                print(f"[Agent] Loaded project memory from {agents_md_path}")
+        except Exception as e:
+            print(f"[Agent] Failed to load AGENTS.md: {e}")
+
+    # Load agent.md (technical reference) - look in project root
+    # Try multiple locations
+    project_root = agent_dir.parent
+    agent_md_paths = [
+        project_root / "agent.md",
+        agent_dir / "agent.md",
+    ]
+    for agent_md_path in agent_md_paths:
+        if agent_md_path.exists():
+            try:
+                content = agent_md_path.read_text()
+                # Truncate if too long (keep first 2000 chars)
+                if len(content) > 2000:
+                    content = content[:2000] + "\n\n[...truncated for brevity...]"
+                context_sections.append(f"<agent_memory>\n{content}\n</agent_memory>")
+                print(f"[Agent] Loaded agent memory from {agent_md_path}")
+                break
+            except Exception as e:
+                print(f"[Agent] Failed to load agent.md from {agent_md_path}: {e}")
+
+    # Load skills metadata (names and descriptions only)
+    skills_dir = agent_dir / "skills"
+    if skills_dir.exists():
+        skill_entries = []
+        for skill_folder in skills_dir.iterdir():
+            if skill_folder.is_dir():
+                skill_file = skill_folder / "SKILL.md"
+                if skill_file.exists():
+                    try:
+                        content = skill_file.read_text()
+                        # Parse YAML frontmatter for name and description
+                        if content.startswith("---"):
+                            end = content.find("---", 3)
+                            if end > 0:
+                                try:
+                                    frontmatter = yaml.safe_load(content[3:end])
+                                    name = frontmatter.get("name", skill_folder.name)
+                                    desc = frontmatter.get("description", "No description")
+                                    skill_entries.append(f"- {name}: {desc}")
+                                except yaml.YAMLError:
+                                    # Fall back to folder name
+                                    skill_entries.append(f"- {skill_folder.name}: (no description)")
+                    except Exception as e:
+                        print(f"[Agent] Failed to parse skill {skill_file}: {e}")
+
+        if skill_entries:
+            skills_list = "\n".join(skill_entries)
+            context_sections.append(
+                f"<skills>\nAvailable skills:\n{skills_list}\n\n"
+                f"To use a skill: read_file(.browser-agent/skills/[name]/SKILL.md) for full instructions.\n</skills>"
+            )
+            print(f"[Agent] Loaded {len(skill_entries)} skill metadata entries")
+
+    return "\n".join(context_sections)
 
 
 def create_browser_agent(
@@ -34,6 +115,7 @@ def create_browser_agent(
     - Subagent spawning for task delegation
     - Browser automation tools
     - State and memory management with checkpointing
+    - Context loading from AGENTS.md, agent.md, and skills
 
     Args:
         model: Language model to use (defaults to Azure OpenAI from config)
@@ -53,8 +135,21 @@ def create_browser_agent(
     if model is None:
         model = get_llm()
 
-    # Get system prompt
-    prompt = get_system_prompt(system_prompt)
+    # Get base system prompt
+    base_prompt = get_system_prompt(system_prompt)
+
+    # Create filesystem backend
+    agent_dir = StorageConfig.get_agent_dir()
+    print(f"[Agent] Filesystem backend: {agent_dir}")
+
+    # Load context files (AGENTS.md, agent.md, skills metadata)
+    context = _load_context_files(agent_dir)
+
+    # Combine base prompt with context
+    if context:
+        full_prompt = base_prompt + "\n\n" + context
+    else:
+        full_prompt = base_prompt
 
     # Use provided tools or default to browser tools
     if tools is None:
@@ -66,11 +161,6 @@ def create_browser_agent(
         # We'll handle async initialization separately in server.py
         print("[Agent] Using in-memory checkpointer (call init_checkpoint_db() for persistence)")
         checkpointer = None  # Will use InMemorySaver by default
-
-    # Create filesystem backend
-    # This provides the underlying file operations for FilesystemMiddleware
-    agent_dir = StorageConfig.get_agent_dir()
-    print(f"[Agent] Filesystem backend: {agent_dir}")
 
     filesystem_backend = FilesystemBackend(
         root_dir=str(agent_dir)
@@ -85,7 +175,7 @@ def create_browser_agent(
     # NOTE: Using GPT-5 which doesn't use Anthropic prompt caching
     agent = create_deep_agent(
         model=model,
-        system_prompt=prompt,
+        system_prompt=full_prompt,
         tools=tools,
         backend=filesystem_backend,  # Configure custom filesystem backend
         checkpointer=checkpointer,
@@ -189,6 +279,29 @@ def run_ralph_mode(
     return results[-1] if results else {}
 
 
-# Create the main agent instance
-# This will be imported by langgraph.json
-graph = create_browser_agent()
+# Lazy initialization for the main agent instance
+# This avoids blocking calls during module import in ASGI servers
+_graph = None
+
+
+def get_graph(config=None):
+    """Get or create the browser agent (lazy initialization).
+
+    This defers directory creation and agent setup until first use,
+    avoiding blocking calls during module import in async contexts.
+
+    Args:
+        config: Optional RunnableConfig (accepted for LangGraph compatibility)
+
+    Returns:
+        Compiled LangGraph agent
+    """
+    global _graph
+    if _graph is None:
+        _graph = create_browser_agent()
+    return _graph
+
+
+# For langgraph.json compatibility, expose as callable
+# LangGraph will call this function to get the graph instance
+graph = get_graph

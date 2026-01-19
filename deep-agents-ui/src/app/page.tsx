@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useQueryState } from "nuqs";
-import { getConfig, saveConfig, StandaloneConfig } from "@/lib/config";
+import { getConfig, saveConfig, StandaloneConfig, RECURSION_LIMIT } from "@/lib/config";
 import { ConfigDialog } from "@/app/components/ConfigDialog";
 import { Button } from "@/components/ui/button";
 import { Assistant } from "@langchain/langgraph-sdk";
@@ -347,7 +347,7 @@ function HomePageInner({
           <ChatProvider
             activeAssistant={assistant}
             onHistoryRevalidate={() => mutateThreads?.()}
-            recursionLimit={config.recursionLimit}
+            recursionLimit={RECURSION_LIMIT}
             browserStreamPort={config.browserStreamPort}
           >
             <ResizablePanelGroup
