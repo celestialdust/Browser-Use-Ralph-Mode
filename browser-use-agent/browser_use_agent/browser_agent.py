@@ -6,66 +6,88 @@ from langchain_core.messages import HumanMessage
 
 try:
     from deepagents import create_deep_agent
+    from deepagents.backends import FilesystemBackend
 except ImportError:
     print("Error: deepagents library not installed. Please run:")
-    print("  pip install deepagents")
+    print("  uv pip install deepagents")
     raise
 
 from browser_use_agent.configuration import get_llm, Config
 from browser_use_agent.prompts import get_system_prompt, RALPH_MODE_REFLECTION_PROMPT
 from browser_use_agent.state import AgentState, create_initial_state
 from browser_use_agent.tools import BROWSER_TOOLS
+from browser_use_agent.storage import get_checkpoint_saver, StorageConfig
 
 
 def create_browser_agent(
     model: Any = None,
     system_prompt: str = None,
     tools: List[Any] = None,
+    checkpointer: Any = None,
     **kwargs
 ) -> Any:
-    """Create a DeepAgents browser automation agent.
-    
+    """Create a DeepAgents browser automation agent with filesystem backend.
+
     The agent includes:
     - Planning capabilities (write_todos tool)
-    - File system tools for context management
+    - File system tools for context management (ls, read_file, write_file, edit_file)
     - Subagent spawning for task delegation
     - Browser automation tools
-    - State and memory management
-    
+    - State and memory management with checkpointing
+
     Args:
         model: Language model to use (defaults to Azure OpenAI from config)
         system_prompt: System prompt for the agent (defaults to BROWSER_AGENT_SYSTEM_PROMPT)
         tools: List of tools available to the agent (defaults to BROWSER_TOOLS)
+        checkpointer: Checkpoint saver for persistence (defaults to storage config)
         **kwargs: Additional arguments for create_deep_agent
-        
+
     Returns:
         Compiled LangGraph agent
     """
     # Use provided model or default to Azure OpenAI
     if model is None:
         model = get_llm()
-    
+
     # Get system prompt
     prompt = get_system_prompt(system_prompt)
-    
+
     # Use provided tools or default to browser tools
     if tools is None:
         tools = BROWSER_TOOLS
-    
+
+    # Get checkpoint saver if not provided
+    if checkpointer is None:
+        # Note: get_checkpoint_saver is async, but create_deep_agent expects sync
+        # We'll handle async initialization separately in server.py
+        print("[Agent] Using in-memory checkpointer (call init_checkpoint_db() for persistence)")
+        checkpointer = None  # Will use InMemorySaver by default
+
+    # Create filesystem backend
+    # This provides the underlying file operations for FilesystemMiddleware
+    agent_dir = StorageConfig.get_agent_dir()
+    print(f"[Agent] Filesystem backend: {agent_dir}")
+
+    filesystem_backend = FilesystemBackend(
+        root_dir=str(agent_dir)
+    )
+
     # Create agent using DeepAgents library
-    # The create_deep_agent function handles:
-    # - Planning and task decomposition (write_todos tool)
-    # - File system tools for context management  
-    # - Subagent spawning (task tool)
-    # - State management
-    # - Checkpoint/memory management
+    # The create_deep_agent function includes:
+    # - TodoListMiddleware (planning)
+    # - FilesystemMiddleware (file ops - configured via backend parameter)
+    # - SubAgentMiddleware (task delegation)
+    # - SummarizationMiddleware (context management)
+    # - AnthropicPromptCachingMiddleware (caching)
     agent = create_deep_agent(
         model=model,
         system_prompt=prompt,
         tools=tools,
+        backend=filesystem_backend,  # Configure custom filesystem backend
+        checkpointer=checkpointer,
         **kwargs
     )
-    
+
     return agent
 
 

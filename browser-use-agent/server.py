@@ -6,8 +6,21 @@ from pydantic import BaseModel
 from typing import Optional, Dict, List, Any
 import asyncio
 import uuid
-from agent import graph, create_agent_state
+from agent import create_agent_state
 from stream_manager import stream_manager
+from browser_use_agent.browser_agent import create_browser_agent
+from browser_use_agent.storage import init_checkpoint_db
+
+
+async def setup_storage():
+    """Initialize storage backends."""
+    checkpointer = await init_checkpoint_db()
+    return checkpointer
+
+
+# Initialize graph with checkpoint persistence
+checkpointer = asyncio.run(setup_storage())
+graph = create_browser_agent(checkpointer=checkpointer)
 
 app = FastAPI(title="Browser-Use Agent API", version="1.0.0")
 
