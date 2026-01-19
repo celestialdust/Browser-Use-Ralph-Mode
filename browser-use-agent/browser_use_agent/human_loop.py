@@ -1,109 +1,16 @@
-"""Human-in-the-loop tools for requesting human assistance.
+"""Human-in-the-loop tools using LangGraph interrupt mechanism.
 
 This module provides tools for the agent to request help from humans when:
 - Both DOM and visual approaches fail (request guidance)
 - Login credentials are needed (request credentials)
 - Confirmation is needed for sensitive actions (request confirmation)
+
+Uses LangGraph's interrupt() function for proper graph-based human intervention.
 """
 
-from datetime import datetime
 from typing import Dict, Any, Optional
 from langchain_core.tools import tool
-
-# Global state for human interaction requests
-_human_requests: Dict[str, Dict[str, Any]] = {}
-_request_counter = 0
-
-
-def _create_request(
-    request_type: str,
-    thread_id: str,
-    context: str,
-    question: str,
-    options: Optional[list] = None
-) -> Dict[str, Any]:
-    """Create a human interaction request.
-
-    Args:
-        request_type: Type of request (guidance, credentials, confirmation)
-        thread_id: Thread identifier
-        context: Context about the situation
-        question: Question to ask the human
-        options: Optional list of suggested options
-
-    Returns:
-        Request data dict
-    """
-    global _request_counter
-    _request_counter += 1
-    request_id = f"{thread_id}_{request_type}_{_request_counter}"
-
-    request = {
-        "id": request_id,
-        "type": request_type,
-        "thread_id": thread_id,
-        "context": context,
-        "question": question,
-        "options": options,
-        "status": "pending",
-        "created_at": datetime.now().isoformat(),
-        "response": None,
-    }
-
-    _human_requests[request_id] = request
-    print(f"[HumanLoop] Created {request_type} request: {request_id}")
-    return request
-
-
-def get_pending_requests(thread_id: str) -> list:
-    """Get all pending requests for a thread.
-
-    Args:
-        thread_id: Thread identifier
-
-    Returns:
-        List of pending request dicts
-    """
-    return [
-        req for req in _human_requests.values()
-        if req["thread_id"] == thread_id and req["status"] == "pending"
-    ]
-
-
-def get_request(request_id: str) -> Optional[Dict[str, Any]]:
-    """Get a specific request by ID.
-
-    Args:
-        request_id: Request identifier
-
-    Returns:
-        Request dict or None
-    """
-    return _human_requests.get(request_id)
-
-
-def submit_response(request_id: str, response: Any) -> bool:
-    """Submit a response to a pending request.
-
-    Args:
-        request_id: Request identifier
-        response: The human's response
-
-    Returns:
-        True if successful, False otherwise
-    """
-    if request_id not in _human_requests:
-        return False
-
-    request = _human_requests[request_id]
-    if request["status"] != "pending":
-        return False
-
-    request["response"] = response
-    request["status"] = "completed"
-    request["completed_at"] = datetime.now().isoformat()
-    print(f"[HumanLoop] Response submitted for {request_id}")
-    return True
+from langgraph.types import interrupt
 
 
 @tool
@@ -116,6 +23,9 @@ def request_human_guidance(thread_id: str, context: str, question: str, attempte
     - You need clarification on user intent
     - You encounter an unexpected situation
 
+    This tool uses LangGraph's interrupt mechanism to pause execution
+    and wait for human response.
+
     Args:
         thread_id: Thread identifier for this session
         context: Describe the current situation and what you're trying to do
@@ -123,35 +33,43 @@ def request_human_guidance(thread_id: str, context: str, question: str, attempte
         attempted_approaches: What approaches you've already tried
 
     Returns:
-        Request ID to check for response later
+        Human's guidance response
 
     Example:
-        request_human_guidance(
+        guidance = request_human_guidance(
             thread_id="abc123",
             context="Trying to log into LinkedIn",
-            question="I cannot find the login button using DOM selectors or visual detection. Where should I look?",
+            question="I cannot find the login button. Where should I look?",
             attempted_approaches="Tried: snapshot with -i flag, searched for 'Sign In', checked top navigation"
         )
     """
-    full_context = f"{context}\n\nAttempted approaches:\n{attempted_approaches}"
+    request_data = {
+        "type": "guidance",
+        "thread_id": thread_id,
+        "context": context,
+        "question": question,
+        "attempted_approaches": attempted_approaches,
+    }
 
-    request = _create_request(
-        request_type="guidance",
-        thread_id=thread_id,
-        context=full_context,
-        question=question,
-        options=None
-    )
+    print(f"[HumanLoop] Requesting guidance for thread {thread_id}")
+    print(f"[HumanLoop] Question: {question}")
 
-    return f"Created guidance request: {request['id']}. Human will respond soon. You can continue with other tasks or wait for response."
+    # Use LangGraph interrupt to pause and wait for human response
+    response = interrupt(request_data)
+
+    print(f"[HumanLoop] Received guidance: {response}")
+    return response
 
 
 @tool
-def request_credentials(thread_id: str, service: str, credential_types: str, reason: str) -> str:
+def request_credentials(thread_id: str, service: str, credential_types: str, reason: str) -> Dict[str, str]:
     """Request login credentials from a human.
 
     Use this tool when you need credentials to log into a service.
     NEVER attempt to guess or generate credentials.
+
+    This tool uses LangGraph's interrupt mechanism to pause execution
+    and wait for credentials from the human.
 
     Args:
         thread_id: Thread identifier for this session
@@ -160,28 +78,35 @@ def request_credentials(thread_id: str, service: str, credential_types: str, rea
         reason: Why you need these credentials
 
     Returns:
-        Request ID to check for response later
+        Dictionary with credentials (e.g., {"username": "...", "password": "..."})
 
     Example:
-        request_credentials(
+        creds = request_credentials(
             thread_id="abc123",
             service="LinkedIn",
             credential_types="username and password",
             reason="User asked me to check their LinkedIn messages"
         )
+        username = creds["username"]
+        password = creds["password"]
     """
-    question = f"Please provide {credential_types} for {service}"
-    context = f"Service: {service}\nNeeded: {credential_types}\nReason: {reason}"
+    request_data = {
+        "type": "credentials",
+        "thread_id": thread_id,
+        "service": service,
+        "credential_types": credential_types,
+        "reason": reason,
+        "question": f"Please provide {credential_types} for {service}",
+    }
 
-    request = _create_request(
-        request_type="credentials",
-        thread_id=thread_id,
-        context=context,
-        question=question,
-        options=None
-    )
+    print(f"[HumanLoop] Requesting credentials for {service}")
+    print(f"[HumanLoop] Reason: {reason}")
 
-    return f"Created credentials request: {request['id']}. Waiting for human to provide credentials."
+    # Use LangGraph interrupt to pause and wait for credentials
+    credentials = interrupt(request_data)
+
+    print(f"[HumanLoop] Received credentials for {service}")
+    return credentials
 
 
 @tool
@@ -194,6 +119,9 @@ def request_confirmation(thread_id: str, action: str, risks: str, alternatives: 
     - Performing actions that cannot be undone
     - Actions with security or privacy implications
 
+    This tool uses LangGraph's interrupt mechanism to pause execution
+    and wait for user confirmation.
+
     Args:
         thread_id: Thread identifier for this session
         action: Describe the action you want to take
@@ -201,76 +129,41 @@ def request_confirmation(thread_id: str, action: str, risks: str, alternatives: 
         alternatives: Alternative approaches (if any)
 
     Returns:
-        Request ID to check for response later
+        "approved" if human approves, "rejected" with reason if denied
 
     Example:
-        request_confirmation(
+        confirmation = request_confirmation(
             thread_id="abc123",
             action="Submit payment form with $500 amount",
             risks="This will charge the credit card on file",
             alternatives="Could save as draft instead"
         )
+
+        if "approved" in confirmation.lower():
+            # Proceed with action
+            browser_click(submit_button_ref, thread_id)
+        else:
+            # Handle rejection
+            return f"Action cancelled: {confirmation}"
     """
-    question = f"Should I proceed with: {action}"
-    context = f"Action: {action}\n\nRisks:\n{risks}\n\nAlternatives:\n{alternatives}"
+    request_data = {
+        "type": "confirmation",
+        "thread_id": thread_id,
+        "action": action,
+        "risks": risks,
+        "alternatives": alternatives,
+        "question": f"Should I proceed with: {action}?",
+        "options": ["Approve", "Reject", "Suggest alternative"],
+    }
 
-    request = _create_request(
-        request_type="confirmation",
-        thread_id=thread_id,
-        context=context,
-        question=question,
-        options=["Proceed", "Cancel", "Suggest alternative"]
-    )
+    print(f"[HumanLoop] Requesting confirmation for action: {action}")
+    print(f"[HumanLoop] Risks: {risks}")
 
-    return f"Created confirmation request: {request['id']}. Waiting for human approval."
+    # Use LangGraph interrupt to pause and wait for confirmation
+    decision = interrupt(request_data)
 
-
-@tool
-def check_human_response(thread_id: str, request_id: str) -> str:
-    """Check if a human has responded to a previous request.
-
-    Args:
-        thread_id: Thread identifier for this session
-        request_id: ID of the request to check
-
-    Returns:
-        Status and response (if available)
-
-    Example:
-        check_human_response(
-            thread_id="abc123",
-            request_id="abc123_guidance_1"
-        )
-    """
-    request = get_request(request_id)
-
-    if not request:
-        return f"Request {request_id} not found"
-
-    if request["thread_id"] != thread_id:
-        return f"Request {request_id} belongs to a different thread"
-
-    if request["status"] == "pending":
-        return f"Request {request_id} is still pending. Human has not responded yet."
-
-    if request["status"] == "completed":
-        response = request["response"]
-        request_type = request["type"]
-
-        if request_type == "credentials":
-            # Format credentials response
-            if isinstance(response, dict):
-                creds_info = "\n".join([f"- {k}: {v}" for k, v in response.items()])
-                return f"Credentials received:\n{creds_info}"
-            return f"Credentials received: {response}"
-
-        elif request_type == "confirmation":
-            return f"Confirmation response: {response}"
-
-        elif request_type == "guidance":
-            return f"Guidance received: {response}"
-
-    return f"Request {request_id} has status: {request['status']}"
+    print(f"[HumanLoop] Received decision: {decision}")
+    return decision
 
 
 # Tools list for export
@@ -278,5 +171,4 @@ HUMAN_LOOP_TOOLS = [
     request_human_guidance,
     request_credentials,
     request_confirmation,
-    check_human_response,
 ]

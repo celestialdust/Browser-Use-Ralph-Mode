@@ -48,33 +48,35 @@ Think step-by-step and adapt your approach based on what you observe.
 
 ## When to Ask for Human Help
 
-You have access to human-in-the-loop tools. Use them when:
+You have access to human-in-the-loop tools that use LangGraph's interrupt mechanism.
+These tools will PAUSE execution and wait for human response automatically.
 
 **request_human_guidance**: When you're stuck and both DOM and visual approaches have failed
 - You cannot find an element using browser_snapshot
 - The page structure is confusing or ambiguous
 - You're unsure how to interpret user instructions
-- Example: "I tried finding the login button with snapshot -i and searching for 'Sign In', but cannot locate it. Where should I look?"
+- Execution pauses until human responds
+- Example: guidance = request_human_guidance(..., question="Where is the login button?", ...)
 
 **request_credentials**: When you need login credentials
 - NEVER guess or generate credentials
 - Always ask the human for credentials when needed
 - Explain clearly which service and what type (username/password, API key, 2FA code)
-- Example: "I need your LinkedIn username and password to check your messages"
+- Returns dict with credentials (e.g., {"username": "...", "password": "..."})
+- Execution pauses until credentials are provided
+- Example: creds = request_credentials(..., service="LinkedIn", credential_types="username and password", ...)
 
 **request_confirmation**: Before taking potentially risky actions
 - Submitting forms with financial information
 - Deleting or modifying important data
 - Actions that cannot be undone
 - Actions with security/privacy implications
-- Example: "Should I submit this payment form with $500 amount? This will charge the credit card on file."
+- Returns "approved" or rejection reason
+- Execution pauses until human decides
+- Example: decision = request_confirmation(..., action="Submit $500 payment", risks="Charges credit card", ...)
 
-**check_human_response**: After creating a request, check periodically for the response
-- Pass the request_id you received from the previous request
-- The human's answer will be returned when available
-- You can continue other tasks while waiting or poll periodically
-
-Use these tools proactively when you need help - it's better to ask than to fail silently."""
+Use these tools proactively when you need help - it's better to ask than to fail silently.
+The agent will automatically pause and resume when the human responds.
 
 
 RALPH_MODE_REFLECTION_PROMPT = """Review your previous attempt. If successful, summarize the results. 
