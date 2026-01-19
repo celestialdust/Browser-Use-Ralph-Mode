@@ -7,7 +7,7 @@ import { ConfigDialog } from "@/app/components/ConfigDialog";
 import { Button } from "@/components/ui/button";
 import { Assistant } from "@langchain/langgraph-sdk";
 import { ClientProvider, useClient } from "@/providers/ClientProvider";
-import { Menu, PanelLeftClose, Monitor, X } from "lucide-react";
+import { Menu, PanelLeftClose, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ResizableHandle,
@@ -186,13 +186,6 @@ function ChatWithBrowserPanel({
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => setBrowserPanelExpanded(false)}
-                  className="p-1.5 hover:bg-accent rounded transition-colors"
-                  title="Collapse to icon"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
               <div className="flex-1 overflow-auto">
                 <BrowserPanelContent browserSession={browserSession} />

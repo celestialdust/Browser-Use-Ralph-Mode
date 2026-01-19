@@ -492,28 +492,35 @@ def browser_screenshot(thread_id: str, filename: str = None) -> str:
 
     Args:
         thread_id: Thread identifier for session isolation
-        filename: filename to save to 
+        filename: Optional filename (without path). Screenshots are saved to .browser-agent/artifacts/screenshots/
 
     Returns:
-        Screenshot result or base64 data
+        Screenshot result with file path
     """
-    command = ["screenshot"]
-    if filename:
-        command.append(filename)
-    else:
-        command.append("--json")
+    import os
+    from datetime import datetime
 
+    # Ensure screenshots directory exists
+    screenshots_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".browser-agent", "artifacts", "screenshots")
+    os.makedirs(screenshots_dir, exist_ok=True)
+
+    # Generate filename if not provided
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"screenshot_{timestamp}.png"
+
+    # Ensure .png extension
+    if not filename.endswith('.png'):
+        filename = f"{filename}.png"
+
+    # Full path for screenshot
+    screenshot_path = os.path.join(screenshots_dir, filename)
+
+    command = ["screenshot", screenshot_path]
     result = _run_browser_command(thread_id, command)
 
     if result["success"]:
-        if filename:
-            return f"Screenshot saved to {filename}"
-        else:
-            try:
-                data = json.loads(result["output"])
-                return f"Screenshot captured (base64): {data.get('data', '')[:100]}..."
-            except json.JSONDecodeError:
-                return result["output"]
+        return f"Screenshot saved to {screenshot_path}"
     else:
         return f"Failed to take screenshot: {result['error']}"
 
