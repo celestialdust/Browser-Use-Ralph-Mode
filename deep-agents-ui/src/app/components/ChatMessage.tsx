@@ -5,6 +5,7 @@ import { SubAgentIndicator } from "@/app/components/SubAgentIndicator";
 import { ToolCallBox } from "@/app/components/ToolCallBox";
 import { MarkdownContent } from "@/app/components/MarkdownContent";
 import { ThoughtProcess } from "@/app/components/ThoughtProcess";
+import { ReasoningDisplay } from "@/app/components/ReasoningDisplay";
 import type {
   SubAgent,
   ToolCall,
@@ -49,6 +50,35 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
     const hasToolCalls = toolCalls.length > 0;
+
+    // Extract reasoning from message if available
+    const reasoning = useMemo(() => {
+      // Check for reasoning in additional_kwargs (common for extended thinking)
+      const additionalKwargs = message.additional_kwargs as Record<string, unknown> | undefined;
+      if (additionalKwargs?.reasoning && typeof additionalKwargs.reasoning === "string") {
+        return additionalKwargs.reasoning;
+      }
+      // Check for reasoning as a direct property on the message
+      const messageWithReasoning = message as Message & { reasoning?: string };
+      if (messageWithReasoning.reasoning && typeof messageWithReasoning.reasoning === "string") {
+        return messageWithReasoning.reasoning;
+      }
+      return null;
+    }, [message]);
+
+    const reasoningSummary = useMemo(() => {
+      // Check for reasoning summary in additional_kwargs
+      const additionalKwargs = message.additional_kwargs as Record<string, unknown> | undefined;
+      if (additionalKwargs?.reasoningSummary && typeof additionalKwargs.reasoningSummary === "string") {
+        return additionalKwargs.reasoningSummary;
+      }
+      // Check for reasoningSummary as a direct property on the message
+      const messageWithSummary = message as Message & { reasoningSummary?: string };
+      if (messageWithSummary.reasoningSummary && typeof messageWithSummary.reasoningSummary === "string") {
+        return messageWithSummary.reasoningSummary;
+      }
+      return undefined;
+    }, [message]);
     const subAgents = useMemo(() => {
       return toolCalls
         .filter((toolCall: ToolCall) => {
@@ -109,7 +139,15 @@ export const ChatMessage = React.memo<ChatMessageProps>(
               isExpanded={true}
             />
           )}
-          
+
+          {/* Reasoning Display for assistant messages with reasoning */}
+          {!isUser && reasoning && (
+            <ReasoningDisplay
+              reasoning={reasoning}
+              summary={reasoningSummary}
+            />
+          )}
+
           {hasContent && (
             <div className={cn("relative flex items-end gap-0")}>
               <div
