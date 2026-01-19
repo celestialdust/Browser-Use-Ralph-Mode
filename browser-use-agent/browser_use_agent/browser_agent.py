@@ -45,6 +45,10 @@ def create_browser_agent(
     Returns:
         Compiled LangGraph agent
     """
+    # Initialize directory structure
+    from browser_use_agent.storage import init_agent_directories
+    init_agent_directories()
+
     # Use provided model or default to Azure OpenAI
     if model is None:
         model = get_llm()
