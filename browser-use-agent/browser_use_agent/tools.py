@@ -652,6 +652,9 @@ def browser_console(thread_id: str) -> str:
     return f"✗ Failed to get console logs: {result['error']}"
 
 
+# Import human-in-the-loop tools
+from browser_use_agent.human_loop import HUMAN_LOOP_TOOLS
+
 # Export all tools
 BROWSER_TOOLS = [
     # Core commands
@@ -676,4 +679,6 @@ BROWSER_TOOLS = [
     browser_is_checked,
     # Debug
     browser_console,
+    # Human-in-the-loop tools
+    *HUMAN_LOOP_TOOLS,
 ]
