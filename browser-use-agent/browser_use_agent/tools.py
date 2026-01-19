@@ -595,23 +595,84 @@ def browser_wait_time(milliseconds: int, thread_id: str) -> str:
 @tool
 def browser_hover(ref: str, thread_id: str) -> str:
     """Hover over an element before clicking (human-like behavior).
-    
+
     More human-like than direct clicks. Some sites track mouse movement patterns.
-    
+
     Args:
         ref: Element reference from snapshot (e.g., "@e1")
         thread_id: Thread identifier for session isolation
-        
+
     Returns:
         str: Success or error message
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["hover", ref])
-    
+
     if result["success"]:
         return f"Successfully hovered over {ref}"
     else:
         return f"Failed to hover: {result['error']}"
+
+
+@tool
+def browser_check(ref: str, thread_id: str) -> str:
+    """Check a checkbox element.
+
+    Args:
+        ref: Element reference from snapshot (e.g., "@e1")
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        str: Check result
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["check", ref])
+
+    if result["success"]:
+        return f"Successfully checked {ref}"
+    else:
+        return f"Failed to check {ref}: {result['error']}"
+
+
+@tool
+def browser_uncheck(ref: str, thread_id: str) -> str:
+    """Uncheck a checkbox element.
+
+    Args:
+        ref: Element reference from snapshot (e.g., "@e1")
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        str: Uncheck result
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["uncheck", ref])
+
+    if result["success"]:
+        return f"Successfully unchecked {ref}"
+    else:
+        return f"Failed to uncheck {ref}: {result['error']}"
+
+
+@tool
+def browser_select(ref: str, value: str, thread_id: str) -> str:
+    """Select an option from a dropdown element.
+
+    Args:
+        ref: Element reference from snapshot (e.g., "@e1")
+        value: The value or text of the option to select
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        str: Select result
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["select", ref, value])
+
+    if result["success"]:
+        return f"Successfully selected '{value}' in {ref}"
+    else:
+        return f"Failed to select in {ref}: {result['error']}"
 
 
 @tool
@@ -714,6 +775,9 @@ BROWSER_TOOLS = [
     browser_cookies_set,
     browser_wait_time,
     browser_hover,
+    browser_check,
+    browser_uncheck,
+    browser_select,
     browser_back,
     browser_forward,
     browser_reload,

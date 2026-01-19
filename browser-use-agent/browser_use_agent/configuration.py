@@ -40,6 +40,9 @@ class Config:
         "browser_submit",
         "browser_press_key",
         "browser_eval",
+        "browser_check",
+        "browser_uncheck",
+        "browser_select",
     }
     
     AUTO_APPROVED_TOOLS = {
