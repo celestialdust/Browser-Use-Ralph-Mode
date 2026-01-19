@@ -40,6 +40,12 @@ class Config:
     # Browser streaming settings
     BASE_STREAM_PORT: int = int(os.getenv("AGENT_BROWSER_STREAM_PORT", "9223"))
     MAX_PORT_OFFSET: int = 1000
+
+    # CDP (Chrome DevTools Protocol) settings
+    # When enabled, connects to an existing browser instead of launching a new one
+    # Start Chrome with: google-chrome --remote-debugging-port=9222
+    USE_CDP: bool = os.getenv("USE_CDP", "false").lower() == "true"
+    CDP_PORT: int = int(os.getenv("CDP_PORT", "9222"))
     
     # Ralph Mode settings
     DEFAULT_MAX_ITERATIONS: int = 5

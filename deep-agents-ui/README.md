@@ -4,6 +4,27 @@ A modern, Claude-inspired interface for interacting with the Browser Use Agent. 
 
 ## What's New (Latest Update)
 
+### v4.4 - Interrupt Handling & Backend Improvements 🔧
+
+**Critical Fixes**:
+
+1. **🔄 Multitask Interrupt Strategy**
+   - **Problem**: Sending new messages while agent was waiting for tool approval would cancel the pending tool call
+   - **Root Cause**: LangGraph stream submissions weren't using `multitaskStrategy: "interrupt"`
+   - **Solution**: Added `multitaskStrategy: "interrupt"` to all stream.submit() calls
+   - **Result**: Users can now send messages without cancelling pending operations
+
+2. **🔐 Smart Credential Handling** (Backend)
+   - Agent now uses credentials provided directly in chat
+   - No longer repeatedly prompts via `request_credentials` when credentials were already given
+   - Fixes infinite loop issue when user provides credentials but agent keeps requesting them
+
+3. **🌐 CDP Support** (Backend)
+   - New `USE_CDP` environment variable to connect to existing Chrome browser
+   - Useful for debugging or reusing authenticated sessions
+
+---
+
 ### v4.3 - Skills Display & UI Refinements 🎯
 
 **New Features**:

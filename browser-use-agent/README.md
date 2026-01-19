@@ -2,6 +2,12 @@
 
 A browser automation agent built with [DeepAgents](https://docs.langchain.com/oss/python/deepagents/overview) and [agent-browser](https://agent-browser.dev/), featuring Ralph Mode for iterative task refinement.
 
+## Recent Updates
+
+### v4.4 - Credential Handling & CDP Support
+- **Smart Credential Handling**: Agent now uses credentials provided directly in chat instead of repeatedly prompting via `request_credentials` tool. Previously, the agent would call `request_credentials` even when users provided credentials in the conversation, causing an infinite loop.
+- **CDP Support**: New option to connect to an existing Chrome browser via Chrome DevTools Protocol instead of launching isolated sessions. Useful for debugging or reusing authenticated sessions.
+
 ## Features
 
 - 🤖 **DeepAgents Integration**: Built on LangChain's DeepAgents framework
@@ -254,6 +260,28 @@ mypy browser_use_agent/
 | `DEPLOYMENT_NAME` | Model deployment name | `gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
 | `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
+| `USE_CDP` | Use Chrome DevTools Protocol | `false` |
+| `CDP_PORT` | CDP port (when USE_CDP=true) | `9222` |
+
+### CDP Mode (Chrome DevTools Protocol)
+
+Connect to an existing Chrome browser instead of launching isolated sessions:
+
+```bash
+# 1. Start Chrome with remote debugging enabled
+google-chrome --remote-debugging-port=9222
+
+# 2. Configure backend to use CDP
+USE_CDP=true CDP_PORT=9222 langgraph dev --port 2024
+```
+
+**When to use CDP mode:**
+- Debugging browser automation issues
+- Reusing authenticated browser sessions
+- Connecting to a Chrome instance with specific extensions
+- Manual intervention during automation
+
+**Note:** In CDP mode, all threads share the same browser instance. For isolation, use the default session mode.
 
 ### Configuration Class
 

@@ -66,6 +66,13 @@ Browser-Use/
 └── README.md                 # This file
 ```
 
+## 🆕 Recent Updates
+
+### v4.4 - Credential Handling & CDP Support
+- **Smart Credential Handling**: Agent now uses credentials provided directly in chat instead of repeatedly prompting via `request_credentials` tool
+- **CDP Support**: Connect to existing Chrome browser via Chrome DevTools Protocol (`USE_CDP=true`)
+- **Interrupt Handling Fix**: Added `multitaskStrategy: "interrupt"` to prevent new messages from cancelling pending tool calls
+
 ## ✨ Features
 
 ### DeepAgents Integration
@@ -281,6 +288,17 @@ print(result["messages"][-1].content)
 | `DEPLOYMENT_NAME` | Model deployment name | `gsds-gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
 | `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
+| `USE_CDP` | Use Chrome DevTools Protocol | `false` |
+| `CDP_PORT` | CDP port (when USE_CDP=true) | `9222` |
+
+**CDP Mode** (connect to existing browser):
+```bash
+# Start Chrome with remote debugging
+google-chrome --remote-debugging-port=9222
+
+# Configure backend to use CDP
+USE_CDP=true CDP_PORT=9222 langgraph dev --port 2024
+```
 
 **Python Config Class**:
 ```python

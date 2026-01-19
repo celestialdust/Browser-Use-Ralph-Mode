@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Important Rules
 
 - **Always use `uv` for Python operations** - Never use `pip` directly. Use `uv pip install`, `uv run`, `uv venv`, etc.
+- **Credential handling**: Agent can use credentials provided directly in chat. Only use `request_credentials` tool if user hasn't provided them in the conversation.
 
 ## Project Overview
 
@@ -34,6 +35,10 @@ uv pip install -e .
 
 # Run LangGraph server (primary backend)
 langgraph dev --port 2024
+
+# Optional: Use CDP mode to connect to existing Chrome browser
+# First start Chrome: google-chrome --remote-debugging-port=9222
+USE_CDP=true CDP_PORT=9222 langgraph dev --port 2024
 
 # CLI usage
 python agent.py --task "Navigate to example.com"

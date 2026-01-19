@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from langchain.tools import tool
 from browser_use_agent.utils import stream_manager
+from browser_use_agent.configuration import Config
 
 # Maximum output size before saving to filesystem (in characters)
 MAX_OUTPUT_SIZE = 1000
@@ -94,8 +95,11 @@ def _run_browser_command(
     Returns:
         Dict with command output and status
     """
-    # Prepare command with session
-    full_command = ["agent-browser", "--session", thread_id] + command
+    # Prepare command - use CDP if configured, otherwise use session-based isolation
+    if Config.USE_CDP:
+        full_command = ["agent-browser", "--cdp", str(Config.CDP_PORT)] + command
+    else:
+        full_command = ["agent-browser", "--session", thread_id] + command
 
     # Set up environment
     env = os.environ.copy()

@@ -247,6 +247,7 @@ export function useChat({
             messages: [...(prev.messages ?? []), newMessage],
           }),
           config: { ...(activeAssistant?.config ?? {}), recursion_limit: recursionLimit },
+          multitaskStrategy: "interrupt",
         }
       );
       // Update thread list immediately when sending a message
@@ -282,6 +283,7 @@ export function useChat({
             : {}),
           config: activeAssistant?.config,
           checkpoint: checkpoint,
+          multitaskStrategy: "interrupt",
           ...(isRerunningSubagent
             ? { interruptAfter: ["tools"] }
             : { interruptBefore: ["tools"] }),
@@ -289,7 +291,7 @@ export function useChat({
       } else {
         stream.submit(
           { messages },
-          { config: activeAssistant?.config, interruptBefore: ["tools"] }
+          { config: activeAssistant?.config, interruptBefore: ["tools"], multitaskStrategy: "interrupt" }
         );
       }
     },
@@ -313,6 +315,7 @@ export function useChat({
           ...(activeAssistant?.config || {}),
           recursion_limit: recursionLimit,
         },
+        multitaskStrategy: "interrupt",
         ...(hasTaskToolCall
           ? { interruptAfter: ["tools"] }
           : { interruptBefore: ["tools"] }),
@@ -324,14 +327,14 @@ export function useChat({
   );
 
   const markCurrentThreadAsResolved = useCallback(() => {
-    stream.submit(null, { command: { goto: "__end__", update: null } });
+    stream.submit(null, { command: { goto: "__end__", update: null }, multitaskStrategy: "interrupt" });
     // Update thread list when marking thread as resolved
     onHistoryRevalidate?.();
   }, [stream, onHistoryRevalidate]);
 
   const resumeInterrupt = useCallback(
     (value: any) => {
-      stream.submit(null, { command: { resume: value } });
+      stream.submit(null, { command: { resume: value }, multitaskStrategy: "interrupt" });
       // Update thread list when resuming from interrupt
       onHistoryRevalidate?.();
     },
