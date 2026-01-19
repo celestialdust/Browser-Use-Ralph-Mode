@@ -27,33 +27,32 @@ class Config:
     
     # Ralph Mode settings
     DEFAULT_MAX_ITERATIONS: int = 5
-    
-    # Tool categorization
-    APPROVAL_REQUIRED_TOOLS = {
+
+    # Tool categorization - Since the agent runs in a sandboxed browser,
+    # approval is not needed for any actions. All tools are auto-approved.
+    # For advanced agent-browser commands not exposed as tools, the agent
+    # can use the Bash tool after consulting agent-browser --help.
+    APPROVAL_REQUIRED_TOOLS = set()  # Empty - no approvals needed in sandbox
+
+    AUTO_APPROVED_TOOLS = {
+        # All browser tools are auto-approved
+        "browser_navigate",
+        "browser_snapshot",
         "browser_click",
         "browser_fill",
         "browser_type",
-        "browser_navigate",
+        "browser_press_key",
+        "browser_screenshot",
+        "browser_wait",
+        "browser_close",
         "browser_back",
         "browser_forward",
         "browser_reload",
-        "browser_submit",
-        "browser_press_key",
-        "browser_eval",
-        "browser_check",
-        "browser_uncheck",
-        "browser_select",
-    }
-    
-    AUTO_APPROVED_TOOLS = {
-        "browser_snapshot",
         "browser_get_info",
-        "browser_screenshot",
         "browser_is_visible",
         "browser_is_enabled",
         "browser_is_checked",
-        "browser_get_url",
-        "browser_get_title",
+        "browser_console",
     }
     
     @classmethod

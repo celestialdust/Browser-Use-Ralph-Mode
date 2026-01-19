@@ -1,4 +1,9 @@
-"""Browser automation tools using agent-browser CLI."""
+"""Browser automation tools using agent-browser CLI.
+
+This module provides only the essential core commands from agent-browser.
+For advanced commands, the agent can use the Bash tool to execute
+agent-browser commands directly after consulting agent-browser --help.
+"""
 
 import json
 import os
@@ -6,10 +11,9 @@ import socket
 import subprocess
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from langchain.tools import tool
-from langchain_core.runnables import RunnableConfig
 from browser_use_agent.utils import stream_manager
 
 # Global storage for browser session state (thread-safe using dict keyed by thread_id)
@@ -29,24 +33,24 @@ def _run_browser_command(
     set_stream_port: bool = False
 ) -> Dict[str, Any]:
     """Execute agent-browser CLI command with proper session and streaming setup.
-    
+
     Args:
         thread_id: Unique thread identifier for session isolation
         command: Command parts to execute (without agent-browser prefix)
         set_stream_port: Whether to set AGENT_BROWSER_STREAM_PORT env var
-        
+
     Returns:
         Dict with command output and status
     """
     # Prepare command with session
     full_command = ["agent-browser", "--session", thread_id] + command
-    
+
     # Set up environment
     env = os.environ.copy()
     if set_stream_port:
         port = stream_manager.get_port_for_thread(thread_id)
         env["AGENT_BROWSER_STREAM_PORT"] = str(port)
-    
+
     try:
         result = subprocess.run(
             full_command,
@@ -55,7 +59,7 @@ def _run_browser_command(
             env=env,
             timeout=30
         )
-        
+
         return {
             "success": result.returncode == 0,
             "output": result.stdout,
@@ -77,35 +81,35 @@ def _run_browser_command(
 
 def _update_browser_session(thread_id: str, is_active: bool = True, update_last_activity: bool = True):
     """Update browser session state for the thread.
-    
+
     Args:
         thread_id: Thread identifier
         is_active: Whether the session is active
         update_last_activity: Whether to update the last activity timestamp
     """
     stream_url = stream_manager.get_stream_url(thread_id) if is_active else None
-    
+
     session_data = {
         "sessionId": thread_id,
         "streamUrl": stream_url,
         "isActive": is_active
     }
-    
+
     if update_last_activity and is_active:
         session_data["lastActivity"] = datetime.now()
     elif thread_id in _browser_sessions and "lastActivity" in _browser_sessions[thread_id]:
         # Preserve existing last activity if not updating
         session_data["lastActivity"] = _browser_sessions[thread_id]["lastActivity"]
-    
+
     _browser_sessions[thread_id] = session_data
 
 
 def get_browser_session(thread_id: str) -> Optional[Dict[str, Any]]:
     """Get browser session state for a thread.
-    
+
     Args:
         thread_id: Thread identifier
-        
+
     Returns:
         Browser session dict or None (without lastActivity timestamp)
     """
@@ -124,52 +128,52 @@ def _cleanup_inactive_sessions():
     """Background task to close inactive browser sessions."""
     global _cleanup_running
     _cleanup_running = True
-    
+
     print("[Browser Timeout] Cleanup thread started")
-    
+
     while _cleanup_running:
         try:
             now = datetime.now()
             inactive_threads = []
-            
+
             # Find inactive sessions
             for thread_id, session in list(_browser_sessions.items()):
                 if not session.get("isActive", False):
                     continue
-                    
+
                 last_activity = session.get("lastActivity")
                 if last_activity:
                     inactive_duration = now - last_activity
                     if inactive_duration.total_seconds() > BROWSER_TIMEOUT_SECONDS:
                         inactive_threads.append(thread_id)
                         print(f"[Browser Timeout] Session {thread_id} inactive for {inactive_duration.total_seconds():.0f}s")
-            
+
             # Close inactive sessions
             for thread_id in inactive_threads:
                 print(f"[Browser Timeout] Auto-closing session {thread_id}")
                 result = _run_browser_command(thread_id, ["close"])
                 stream_manager.release_port(thread_id)
                 _update_browser_session(thread_id, is_active=False, update_last_activity=False)
-                
+
                 if result["success"]:
                     print(f"[Browser Timeout] Session {thread_id} closed successfully")
                 else:
                     print(f"[Browser Timeout] Failed to close session {thread_id}: {result.get('error')}")
-            
+
             # Sleep for 10 seconds before next check
             time.sleep(10)
-            
+
         except Exception as e:
             print(f"[Browser Timeout] Error in cleanup thread: {e}")
             time.sleep(10)
-    
+
     print("[Browser Timeout] Cleanup thread stopped")
 
 
 def _start_cleanup_thread():
     """Start the background cleanup thread if not already running."""
     global _cleanup_thread, _cleanup_running
-    
+
     if _cleanup_thread is None or not _cleanup_thread.is_alive():
         _cleanup_thread = threading.Thread(target=_cleanup_inactive_sessions, daemon=True)
         _cleanup_thread.start()
@@ -184,18 +188,18 @@ def _stop_cleanup_thread():
 
 def _wait_for_stream_ready(port: int, timeout_seconds: int = 5, check_interval: float = 0.1) -> bool:
     """Wait for WebSocket stream server to be ready.
-    
+
     Args:
         port: Port number to check
         timeout_seconds: Maximum time to wait
         check_interval: Time between checks in seconds
-        
+
     Returns:
         bool: True if stream is ready, False if timeout
     """
     start_time = time.time()
     attempts = 0
-    
+
     while time.time() - start_time < timeout_seconds:
         attempts += 1
         try:
@@ -204,58 +208,19 @@ def _wait_for_stream_ready(port: int, timeout_seconds: int = 5, check_interval: 
             sock.settimeout(0.5)
             result = sock.connect_ex(('localhost', port))
             sock.close()
-            
+
             if result == 0:
                 # Port is open and accepting connections
                 elapsed = time.time() - start_time
                 print(f"[Stream Ready] Port {port} ready after {elapsed:.2f}s ({attempts} attempts)")
                 return True
-        except Exception as e:
+        except Exception:
             pass
-        
+
         time.sleep(check_interval)
-    
+
     print(f"[Stream Timeout] Port {port} not ready after {timeout_seconds}s")
     return False
-
-
-@tool
-def browser_navigate(url: str, thread_id: str) -> str:
-    """Navigate browser to a URL and start streaming.
-    
-    Args:
-        url: The URL to navigate to
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: Navigation result and stream URL
-    """
-    # Start cleanup thread if not running
-    _start_cleanup_thread()
-    
-    # This is usually the first command, so set stream port
-    result = _run_browser_command(
-        thread_id,
-        ["open", url],
-        set_stream_port=True
-    )
-    
-    if result["success"]:
-        stream_url = stream_manager.get_stream_url(thread_id)
-        
-        # Wait for stream server to be ready before returning
-        port = stream_manager.get_port_for_thread(thread_id)
-        stream_ready = _wait_for_stream_ready(port, timeout_seconds=5)
-        
-        if not stream_ready:
-            print(f"[Browser Navigate] Warning: Stream server not ready within timeout, but navigation succeeded")
-        
-        # Mark session as active and update last activity
-        _update_browser_session(thread_id, is_active=True, update_last_activity=True)
-        print(f"[Browser Navigate] Session {thread_id[:8]}... → Stream: {stream_url}")
-        return f"Successfully navigated to {url}. Browser stream available at {stream_url}"
-    else:
-        return f"Failed to navigate: {result['error']}"
 
 
 def _update_activity(thread_id: str):
@@ -264,23 +229,66 @@ def _update_activity(thread_id: str):
         _browser_sessions[thread_id]["lastActivity"] = datetime.now()
 
 
+# ============================================================================
+# Core Commands - agent-browser core commands
+# ============================================================================
+
+@tool
+def browser_navigate(url: str, thread_id: str) -> str:
+    """Navigate browser to a URL and start streaming.
+
+    Args:
+        url: The URL to navigate to
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        Navigation result and stream URL
+    """
+    # Start cleanup thread if not running
+    _start_cleanup_thread()
+
+    # This is usually the first command, so set stream port
+    result = _run_browser_command(
+        thread_id,
+        ["open", url],
+        set_stream_port=True
+    )
+
+    if result["success"]:
+        stream_url = stream_manager.get_stream_url(thread_id)
+
+        # Wait for stream server to be ready before returning
+        port = stream_manager.get_port_for_thread(thread_id)
+        stream_ready = _wait_for_stream_ready(port, timeout_seconds=5)
+
+        if not stream_ready:
+            print(f"[Browser Navigate] Warning: Stream server not ready within timeout, but navigation succeeded")
+
+        # Mark session as active and update last activity
+        _update_browser_session(thread_id, is_active=True, update_last_activity=True)
+        print(f"[Browser Navigate] Session {thread_id[:8]}... → Stream: {stream_url}")
+        return f"Successfully navigated to {url}. Browser stream available at {stream_url}"
+    else:
+        return f"Failed to navigate: {result['error']}"
+
+
 @tool
 def browser_snapshot(thread_id: str, interactive_only: bool = True) -> str:
     """Get page snapshot with accessibility tree and element references.
-    
+
     Args:
         thread_id: Thread identifier for session isolation
         interactive_only: If True, only return interactive elements
-        
+
     Returns:
-        str: JSON snapshot with element refs (@e1, @e2, etc.)
+        JSON snapshot with element refs (@e1, @e2, etc.)
     """
     command = ["snapshot", "--json"]
     if interactive_only:
         command.append("-i")
-    
+
     result = _run_browser_command(thread_id, command)
-    
+
     if result["success"]:
         try:
             # Parse JSON to pretty print
@@ -295,17 +303,17 @@ def browser_snapshot(thread_id: str, interactive_only: bool = True) -> str:
 @tool
 def browser_click(ref: str, thread_id: str) -> str:
     """Click an element by its reference from snapshot.
-    
+
     Args:
         ref: Element reference (e.g., "@e1", "@e2")
         thread_id: Thread identifier for session isolation
-        
+
     Returns:
-        str: Click result
+        Click result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["click", ref])
-    
+
     if result["success"]:
         return f"Successfully clicked {ref}"
     else:
@@ -315,18 +323,18 @@ def browser_click(ref: str, thread_id: str) -> str:
 @tool
 def browser_fill(ref: str, text: str, thread_id: str) -> str:
     """Fill an input element with text (clears first, then types).
-    
+
     Args:
         ref: Element reference (e.g., "@e1")
         text: Text to fill into the element
         thread_id: Thread identifier for session isolation
-        
+
     Returns:
-        str: Fill result
+        Fill result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["fill", ref, text])
-    
+
     if result["success"]:
         return f"Successfully filled {ref} with text"
     else:
@@ -336,18 +344,18 @@ def browser_fill(ref: str, text: str, thread_id: str) -> str:
 @tool
 def browser_type(ref: str, text: str, thread_id: str) -> str:
     """Type text into an element without clearing it first.
-    
+
     Args:
         ref: Element reference (e.g., "@e1")
         text: Text to type
         thread_id: Thread identifier for session isolation
-        
+
     Returns:
-        str: Type result
+        Type result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["type", ref, text])
-    
+
     if result["success"]:
         return f"Successfully typed into {ref}"
     else:
@@ -357,17 +365,17 @@ def browser_type(ref: str, text: str, thread_id: str) -> str:
 @tool
 def browser_press_key(key: str, thread_id: str) -> str:
     """Press a keyboard key (e.g., "Enter", "Escape", "Tab").
-    
+
     Args:
         key: Key to press
         thread_id: Thread identifier for session isolation
-        
+
     Returns:
-        str: Key press result
+        Key press result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["press", key])
-    
+
     if result["success"]:
         return f"Successfully pressed {key}"
     else:
@@ -375,48 +383,24 @@ def browser_press_key(key: str, thread_id: str) -> str:
 
 
 @tool
-def browser_get_info(info_type: str, thread_id: str, ref: Optional[str] = None) -> str:
-    """Get information from the browser or an element.
-    
-    Args:
-        info_type: Type of info (text, html, value, attr, title, url, count)
-        thread_id: Thread identifier for session isolation
-        ref: Optional element reference (required for text, html, value, attr)
-        
-    Returns:
-        str: Requested information
-    """
-    command = ["get", info_type]
-    if ref:
-        command.append(ref)
-    
-    result = _run_browser_command(thread_id, command)
-    
-    if result["success"]:
-        return result["output"].strip()
-    else:
-        return f"Failed to get {info_type}: {result['error']}"
-
-
-@tool
 def browser_screenshot(thread_id: str, filename: Optional[str] = None) -> str:
     """Take a screenshot of the current page.
-    
+
     Args:
         thread_id: Thread identifier for session isolation
         filename: Optional filename to save to (if None, returns base64)
-        
+
     Returns:
-        str: Screenshot result or base64 data
+        Screenshot result or base64 data
     """
     command = ["screenshot"]
     if filename:
         command.append(filename)
     else:
         command.append("--json")
-    
+
     result = _run_browser_command(thread_id, command)
-    
+
     if result["success"]:
         if filename:
             return f"Screenshot saved to {filename}"
@@ -431,249 +415,85 @@ def browser_screenshot(thread_id: str, filename: Optional[str] = None) -> str:
 
 
 @tool
-def browser_is_visible(ref: str, thread_id: str) -> str:
-    """Check if an element is visible.
-    
-    Args:
-        ref: Element reference
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: "true" or "false"
-    """
-    result = _run_browser_command(thread_id, ["is", "visible", ref])
-    return result["output"].strip() if result["success"] else "false"
-
-
-@tool
-def browser_is_enabled(ref: str, thread_id: str) -> str:
-    """Check if an element is enabled.
-    
-    Args:
-        ref: Element reference
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: "true" or "false"
-    """
-    result = _run_browser_command(thread_id, ["is", "enabled", ref])
-    return result["output"].strip() if result["success"] else "false"
-
-
-@tool
-def browser_wait(thread_id: str, condition: str, value: str) -> str:
+def browser_wait(
+    condition: str,
+    value: str,
+    _timeout: int = 30,
+    thread_id: str = "default"
+) -> str:
     """Wait for a condition to be met.
-    
-    Args:
-        thread_id: Thread identifier for session isolation
-        condition: Condition type (text, url, load, etc.)
-        value: Value to wait for
-        
-    Returns:
-        str: Wait result
-    """
-    command = ["wait", f"--{condition}", value]
-    result = _run_browser_command(thread_id, command)
-    
-    if result["success"]:
-        return f"Condition met: {condition} = {value}"
-    else:
-        return f"Wait timeout: {result['error']}"
 
-
-@tool
-def browser_set_viewport(width: int, height: int, thread_id: str) -> str:
-    """Set browser viewport size to mimic real desktop/mobile devices.
-    
-    CRITICAL for avoiding bot detection - headless browsers have unusual viewport sizes.
-    Recommended: 1920x1080 for desktop, 390x844 for mobile.
-    
     Args:
-        width: Viewport width in pixels (e.g., 1920, 1366, 1280)
-        height: Viewport height in pixels (e.g., 1080, 768, 720)
+        condition: Type of wait ('element', 'text', 'url', 'load', 'time')
+        value: Value to wait for (element ref, text, URL pattern, or seconds for time)
+        _timeout: Maximum wait time in seconds (default 30, reserved for future use)
         thread_id: Thread identifier for session isolation
-        
+
     Returns:
-        str: Success or error message
+        Success message or error
+
+    Examples:
+        browser_wait('element', '@e1', 10, thread_id) - Wait for element @e1
+        browser_wait('text', 'Success', 5, thread_id) - Wait for text "Success"
+        browser_wait('load', 'domcontentloaded', 30, thread_id) - Wait for page load
+        browser_wait('time', '2', 2, thread_id) - Wait for 2 seconds
     """
     _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["set", "viewport", str(width), str(height)])
-    
-    if result["success"]:
-        return f"Successfully set viewport to {width}x{height}"
+
+    # Build wait command based on condition type
+    # Note: _timeout parameter is reserved for future use, agent-browser uses default timeout
+    if condition == 'element':
+        # Wait for element to appear
+        cmd = ["wait", value]
+    elif condition == 'text':
+        # Wait for text to appear
+        cmd = ["wait", "--text", value]
+    elif condition == 'url':
+        # Wait for URL pattern
+        cmd = ["wait", "--url", value]
+    elif condition == 'load':
+        # Wait for load state (load, domcontentloaded, networkidle)
+        cmd = ["wait", "--load", value]
+    elif condition == 'time':
+        # Wait for specified milliseconds (value should be in seconds, convert to ms)
+        ms = int(float(value) * 1000)
+        cmd = ["wait", str(ms)]
     else:
-        return f"Failed to set viewport: {result['error']}"
+        return f"✗ Invalid condition type: {condition}. Use: element, text, url, load, or time"
+
+    result = _run_browser_command(thread_id, cmd)
+    if result["success"]:
+        return f"✓ Wait condition met: {condition}={value}\n{result['output']}"
+    return f"✗ Wait timeout or error: {result['error']}"
 
 
 @tool
-def browser_set_headers(headers_json: str, thread_id: str) -> str:
-    """Set custom HTTP headers including User-Agent.
-    
-    CRITICAL for bypassing user-agent detection. Most sites check for realistic Chrome/Firefox user agents.
-    
-    Args:
-        headers_json: JSON string of headers 
-                     e.g., '{"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}'
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: Success or error message
-    """
-    _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["set", "headers", headers_json])
-    
-    if result["success"]:
-        return "Successfully set custom headers"
-    else:
-        return f"Failed to set headers: {result['error']}"
-
-
-@tool
-def browser_cookies_get(thread_id: str) -> str:
-    """Get all cookies from current page. Save these to restore sessions later and avoid re-triggering CAPTCHA.
-    
-    Use this after successful interactions to save session state.
-    
-    Args:
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: JSON array of cookie objects
-    """
-    result = _run_browser_command(thread_id, ["cookies", "get", "--json"])
-    
-    if result["success"]:
-        return result["output"]
-    else:
-        return f"Failed to get cookies: {result['error']}"
-
-
-@tool
-def browser_cookies_set(cookies_json: str, thread_id: str) -> str:
-    """Set cookies for the current domain. Use to restore sessions and avoid repeated CAPTCHAs.
-    
-    CRITICAL for session persistence. Once CAPTCHA is solved, save cookies and reuse them.
-    
-    Args:
-        cookies_json: JSON string of cookie array 
-                     e.g., '[{"name":"session","value":"abc123","domain":".example.com"}]'
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: Success or error message
-    """
-    _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["cookies", "set", cookies_json])
-    
-    if result["success"]:
-        return "Successfully set cookies"
-    else:
-        return f"Failed to set cookies: {result['error']}"
-
-
-@tool
-def browser_wait_time(milliseconds: int, thread_id: str) -> str:
-    """Wait for specified time. Add human-like delays between actions.
-    
-    IMPORTANT: Bot detection often checks action speed. Add 500-2000ms delays between major actions.
-    
-    Args:
-        milliseconds: Time to wait in ms (recommend 500-2000ms between actions)
-        thread_id: Thread identifier for session isolation
-        
-    Returns:
-        str: Success message
-    """
-    result = _run_browser_command(thread_id, ["wait", str(milliseconds)])
-    
-    if result["success"]:
-        return f"Waited {milliseconds}ms"
-    else:
-        return f"Wait failed: {result['error']}"
-
-
-@tool
-def browser_hover(ref: str, thread_id: str) -> str:
-    """Hover over an element before clicking (human-like behavior).
-
-    More human-like than direct clicks. Some sites track mouse movement patterns.
+def browser_close(thread_id: str) -> str:
+    """Close the browser session and stop streaming.
 
     Args:
-        ref: Element reference from snapshot (e.g., "@e1")
         thread_id: Thread identifier for session isolation
 
     Returns:
-        str: Success or error message
+        Close result
     """
-    _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["hover", ref])
+    result = _run_browser_command(thread_id, ["close"])
+
+    # Release the stream port
+    stream_manager.release_port(thread_id)
+
+    # Mark session as inactive
+    _update_browser_session(thread_id, is_active=False)
 
     if result["success"]:
-        return f"Successfully hovered over {ref}"
+        return "Browser session closed successfully"
     else:
-        return f"Failed to hover: {result['error']}"
+        return f"Failed to close browser: {result['error']}"
 
 
-@tool
-def browser_check(ref: str, thread_id: str) -> str:
-    """Check a checkbox element.
-
-    Args:
-        ref: Element reference from snapshot (e.g., "@e1")
-        thread_id: Thread identifier for session isolation
-
-    Returns:
-        str: Check result
-    """
-    _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["check", ref])
-
-    if result["success"]:
-        return f"Successfully checked {ref}"
-    else:
-        return f"Failed to check {ref}: {result['error']}"
-
-
-@tool
-def browser_uncheck(ref: str, thread_id: str) -> str:
-    """Uncheck a checkbox element.
-
-    Args:
-        ref: Element reference from snapshot (e.g., "@e1")
-        thread_id: Thread identifier for session isolation
-
-    Returns:
-        str: Uncheck result
-    """
-    _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["uncheck", ref])
-
-    if result["success"]:
-        return f"Successfully unchecked {ref}"
-    else:
-        return f"Failed to uncheck {ref}: {result['error']}"
-
-
-@tool
-def browser_select(ref: str, value: str, thread_id: str) -> str:
-    """Select an option from a dropdown element.
-
-    Args:
-        ref: Element reference from snapshot (e.g., "@e1")
-        value: The value or text of the option to select
-        thread_id: Thread identifier for session isolation
-
-    Returns:
-        str: Select result
-    """
-    _update_activity(thread_id)
-    result = _run_browser_command(thread_id, ["select", ref, value])
-
-    if result["success"]:
-        return f"Successfully selected '{value}' in {ref}"
-    else:
-        return f"Failed to select in {ref}: {result['error']}"
-
+# ============================================================================
+# Navigation Commands
+# ============================================================================
 
 @tool
 def browser_back(thread_id: str) -> str:
@@ -683,7 +503,7 @@ def browser_back(thread_id: str) -> str:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        str: Navigation result
+        Navigation result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["back"])
@@ -702,7 +522,7 @@ def browser_forward(thread_id: str) -> str:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        str: Navigation result
+        Navigation result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["forward"])
@@ -721,7 +541,7 @@ def browser_reload(thread_id: str) -> str:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        str: Reload result
+        Reload result
     """
     _update_activity(thread_id)
     result = _run_browser_command(thread_id, ["reload"])
@@ -732,54 +552,128 @@ def browser_reload(thread_id: str) -> str:
         return f"Failed to reload page: {result['error']}"
 
 
+# ============================================================================
+# Get Info Commands
+# ============================================================================
+
 @tool
-def browser_close(thread_id: str) -> str:
-    """Close the browser session and stop streaming.
+def browser_get_info(info_type: str, thread_id: str, ref: Optional[str] = None) -> str:
+    """Get information from the browser or an element.
+
+    Args:
+        info_type: Type of info (text, html, value, attr, title, url, count)
+        thread_id: Thread identifier for session isolation
+        ref: Optional element reference (required for text, html, value, attr)
+
+    Returns:
+        Requested information
+    """
+    command = ["get", info_type]
+    if ref:
+        command.append(ref)
+
+    result = _run_browser_command(thread_id, command)
+
+    if result["success"]:
+        return result["output"].strip()
+    else:
+        return f"Failed to get {info_type}: {result['error']}"
+
+
+# ============================================================================
+# Check State Commands
+# ============================================================================
+
+@tool
+def browser_is_visible(ref: str, thread_id: str) -> str:
+    """Check if an element is visible.
+
+    Args:
+        ref: Element reference
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        "true" or "false"
+    """
+    result = _run_browser_command(thread_id, ["is", "visible", ref])
+    return result["output"].strip() if result["success"] else "false"
+
+
+@tool
+def browser_is_enabled(ref: str, thread_id: str) -> str:
+    """Check if an element is enabled.
+
+    Args:
+        ref: Element reference
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        "true" or "false"
+    """
+    result = _run_browser_command(thread_id, ["is", "enabled", ref])
+    return result["output"].strip() if result["success"] else "false"
+
+
+@tool
+def browser_is_checked(ref: str, thread_id: str) -> str:
+    """Check if a checkbox or radio button is checked.
+
+    Args:
+        ref: Element reference (@e1, @e2, etc.)
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        "true" if checked, "false" if not checked, or error message
+    """
+    result = _run_browser_command(thread_id, ["is", "checked", ref])
+    if result["success"]:
+        output = result["output"].strip().lower()
+        return "true" if "true" in output or "checked" in output else "false"
+    return f"✗ Failed to check state: {result['error']}"
+
+
+# ============================================================================
+# Debug Commands (console)
+# ============================================================================
+
+@tool
+def browser_console(thread_id: str) -> str:
+    """Get browser console logs (errors, warnings, logs).
 
     Args:
         thread_id: Thread identifier for session isolation
 
     Returns:
-        str: Close result
+        Console output or error message
     """
-    result = _run_browser_command(thread_id, ["close"])
-
-    # Release the stream port
-    stream_manager.release_port(thread_id)
-
-    # Mark session as inactive
-    _update_browser_session(thread_id, is_active=False)
-
+    result = _run_browser_command(thread_id, ["console"])
     if result["success"]:
-        return "Browser session closed successfully"
-    else:
-        return f"Failed to close browser: {result['error']}"
+        return f"Console logs:\n{result['output']}"
+    return f"✗ Failed to get console logs: {result['error']}"
 
 
 # Export all tools
 BROWSER_TOOLS = [
+    # Core commands
     browser_navigate,
     browser_snapshot,
     browser_click,
     browser_fill,
     browser_type,
     browser_press_key,
-    browser_get_info,
     browser_screenshot,
-    browser_is_visible,
-    browser_is_enabled,
     browser_wait,
-    browser_set_viewport,
-    browser_set_headers,
-    browser_cookies_get,
-    browser_cookies_set,
-    browser_wait_time,
-    browser_hover,
-    browser_check,
-    browser_uncheck,
-    browser_select,
+    browser_close,
+    # Navigation
     browser_back,
     browser_forward,
     browser_reload,
-    browser_close,
+    # Get info
+    browser_get_info,
+    # Check state
+    browser_is_visible,
+    browser_is_enabled,
+    browser_is_checked,
+    # Debug
+    browser_console,
 ]
