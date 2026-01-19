@@ -51,7 +51,12 @@ interface TextContentBlock {
   index?: number;
 }
 
-type ContentBlock = ReasoningContentBlock | TextContentBlock | string;
+interface ImageUrlContentBlock {
+  type: "image_url";
+  image_url: { url: string };
+}
+
+type ContentBlock = ReasoningContentBlock | TextContentBlock | ImageUrlContentBlock | string;
 
 export const ChatMessage = React.memo<ChatMessageProps>(
   ({
@@ -70,6 +75,21 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     const messageContent = extractStringFromMessageContent(message);
     const hasContent = messageContent && messageContent.trim() !== "";
     const hasToolCalls = toolCalls.length > 0;
+
+    // Extract image URLs from user message content (for multimodal messages)
+    const messageImages = useMemo(() => {
+      const content = message.content;
+      if (!Array.isArray(content)) return [];
+
+      return content
+        .filter((block: any) =>
+          typeof block === "object" &&
+          block !== null &&
+          block.type === "image_url" &&
+          block.image_url?.url
+        )
+        .map((block: any) => block.image_url.url);
+    }, [message.content]);
 
     /**
      * Extract reasoning summaries from message content blocks.
@@ -184,7 +204,7 @@ export const ChatMessage = React.memo<ChatMessageProps>(
             <ReasoningDisplay summaries={reasoningSummaries} />
           )}
 
-          {hasContent && (
+          {(hasContent || (isUser && messageImages.length > 0)) && (
             <div className={cn("relative flex items-end gap-0")}>
               <div
                 className={cn(
@@ -200,9 +220,26 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                 }
               >
                 {isUser ? (
-                  <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                    {messageContent}
-                  </p>
+                  <div className="flex flex-col gap-2">
+                    {/* Image displayed at top right */}
+                    {messageImages.length > 0 && (
+                      <div className="flex justify-end">
+                        {messageImages.map((imageUrl, idx) => (
+                          <img
+                            key={idx}
+                            src={imageUrl}
+                            alt={`Attached image ${idx + 1}`}
+                            className="max-h-48 max-w-[200px] object-contain rounded border border-border"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {hasContent && (
+                      <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                        {messageContent}
+                      </p>
+                    )}
+                  </div>
                 ) : hasContent ? (
                   <MarkdownContent content={messageContent} />
                 ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Brain, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 /**
@@ -48,7 +48,6 @@ export function ReasoningDisplay({ summaries }: ReasoningDisplayProps) {
         className="flex items-center gap-2 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <Brain className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         <span className="text-sm font-medium flex-1">
           Thought process
         </span>

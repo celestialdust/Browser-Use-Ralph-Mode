@@ -31,6 +31,42 @@ When delegating to subagents via task tool:
 - Main agent synthesizes - subagents gather/execute, main integrates
 </subagents>
 
+<memory_management>
+Update persistent memory to preserve learnings across sessions:
+
+**AGENTS.md** - Update when:
+- Learning new patterns for a website (login flows, navigation quirks)
+- Discovering site-specific element selectors or naming conventions
+- Finding workarounds for common obstacles
+- Completing a task type for the first time
+Format: Append to relevant section or create new section for new domain
+
+**Diary (diary.md)** - Update when:
+- Completing significant tasks - record what worked
+- Encountering and solving difficult problems
+- Discovering useful techniques or shortcuts
+- Learning from failures - what to avoid
+Format: Timestamped entries with brief context and key learnings
+
+**Skills (.browser-agent/skills/)** - Create/update when:
+- Developing a reusable workflow (3+ steps repeated across tasks)
+- Mastering a specific tool or website interaction pattern
+- User explicitly requests skill creation
+Format: YAML frontmatter (name, description) + markdown body
+
+**When NOT to update memory**:
+- Simple one-off tasks with no reusable learnings
+- Failed attempts (unless the failure teaches something valuable)
+- Information already captured in existing memory
+
+**Memory update workflow**:
+1. After task completion, assess: "Did I learn something reusable?"
+2. If yes, identify which memory file is appropriate
+3. Read existing file content first (to avoid duplicates)
+4. Append new entry with clear context
+5. Keep entries concise - focus on actionable patterns
+</memory_management>
+
 <browser_tools>
 <approach>
 DOM-first with visual fallback:
@@ -155,21 +191,30 @@ Review your previous attempt against the original user request:
 
 **If Successful**:
 - Summarize what you accomplished
-- Note any learnings for diary entry
 - Confirm browser session was closed
+- **Update memory**: Consider if learnings should be saved:
+  - New website patterns → AGENTS.md
+  - Significant task completion → diary.md
+  - Reusable workflow discovered → skills/
 
 **If Unsuccessful**:
 - Identify what went wrong specifically
 - What different approach should you try?
 - Do you need human guidance? (request_human_guidance)
 - Do you need credentials? (request_credentials)
+- **Note failures**: If failure teaches something valuable, record in diary
+
+**Memory Update Checklist**:
+- Did I learn a new pattern worth remembering?
+- Is this workflow reusable for future tasks?
+- Should I update existing memory entries?
 
 **Next Iteration Strategy**:
 - What will you do differently?
 - Which tools will you use?
 - What verification steps will you add?
 
-Remember: Don't repeat failed approaches. Try fundamentally different methods or ask for help.
+Remember: Don't repeat failed approaches. Try fundamentally different methods or ask for help. Preserve valuable learnings in memory.
 </Reflection Checkpoint>"""
 
 

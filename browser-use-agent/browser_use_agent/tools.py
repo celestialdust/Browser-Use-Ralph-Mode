@@ -65,9 +65,8 @@ def _handle_output(content: str, thread_id: str, output_type: str) -> str:
         return content
 
     filepath = _save_large_output(content, thread_id, output_type)
-    # Return a summary with file reference
-    preview = content[:200] + "..." if len(content) > 200 else content
-    return f"[Output saved to file: {filepath}]\n\nPreview (first 200 chars):\n{preview}\n\nUse read_file tool to access full content."
+    # Return file reference only
+    return f"[Output saved to file: {filepath}]\nUse read_file tool to access full content."
 
 # Global storage for browser session state (thread-safe using dict keyed by thread_id)
 _browser_sessions: Dict[str, Dict[str, Any]] = {}
@@ -371,16 +370,13 @@ def browser_snapshot(thread_id: str, interactive_only: bool = True) -> str:
             # Save full snapshot to file
             filepath = _save_large_output(output_str, thread_id, "snapshot")
 
-            # Create preview (first 500 chars or summary)
-            preview = output_str[:500] + "..." if len(output_str) > 500 else output_str
-
             output = BrowserToolOutput(
                 action="Captured DOM snapshot",
                 observation=f"Found {element_count} interactive elements. Elements have @refs like @e1, @e2.",
                 next_step="Use @refs to interact: browser_click(@e1), browser_fill(@e2, 'text')",
                 filepath=filepath
             )
-            return output.to_string() + f"\n\nPreview:\n{preview}"
+            return output.to_string()
         except json.JSONDecodeError:
             filepath = _save_large_output(result["output"], thread_id, "snapshot")
             output = BrowserToolOutput(

@@ -17,22 +17,53 @@ from browser_use_agent.storage import StorageConfig
 class SkillLoader:
     """Loads skills with progressive disclosure pattern.
 
-    Skills are stored in .browser-agent/skills/ directory:
-    - skill_name.md - Main skill file with YAML frontmatter
-    - skill_name/ - Optional supporting files directory
+    Skills are stored in .browser-agent/skills/ directory with two formats:
+    - skill_name.md - Flat file with YAML frontmatter
+    - skill_name/SKILL.md - Subdirectory with SKILL.md inside (deepagents convention)
 
-    Example skill structure:
+    Both formats support optional supporting files in a skill_name/ directory.
+
+    Example skill structures:
         .browser-agent/skills/
-            linkedin-login.md
-            linkedin-login/
+            linkedin-login.md           # Flat format
+            linkedin-login/             # Supporting files
                 example.py
                 config.json
+            agent-browser/              # Subdirectory format
+                SKILL.md
+                scripts/
+                    helper.py
     """
 
     def __init__(self):
         """Initialize skill loader."""
         self.skills_dir = StorageConfig.get_agent_dir() / "skills"
         self.skills_dir.mkdir(parents=True, exist_ok=True)
+
+    def _find_skill_file(self, skill_name: str) -> Optional[Path]:
+        """Find the skill file for a given skill name.
+
+        Supports two patterns:
+        - skill_name.md (flat file)
+        - skill_name/SKILL.md (subdirectory with SKILL.md)
+
+        Args:
+            skill_name: Name of skill to find
+
+        Returns:
+            Path to skill file or None if not found
+        """
+        # Try flat file first
+        flat_file = self.skills_dir / f"{skill_name}.md"
+        if flat_file.exists():
+            return flat_file
+
+        # Try subdirectory with SKILL.md
+        subdir_file = self.skills_dir / skill_name / "SKILL.md"
+        if subdir_file.exists():
+            return subdir_file
+
+        return None
 
     def list_skills(self) -> List[Dict]:
         """List all available skills (metadata only).
@@ -42,14 +73,28 @@ class SkillLoader:
             - name: Skill name
             - description: Brief description
             - tags: Comma-separated tags
-            - file: Filename
+            - file: Filename or path
         """
         skills = []
+        seen_names = set()
 
+        # Find flat files (*.md in skills dir)
         for skill_file in sorted(self.skills_dir.glob("*.md")):
             metadata = self._extract_metadata(skill_file)
             if metadata:
+                seen_names.add(metadata["name"])
                 skills.append(metadata)
+
+        # Find subdirectory skills (skill_name/SKILL.md)
+        for skill_dir in sorted(self.skills_dir.iterdir()):
+            if skill_dir.is_dir():
+                skill_file = skill_dir / "SKILL.md"
+                if skill_file.exists():
+                    metadata = self._extract_metadata(skill_file)
+                    if metadata and metadata["name"] not in seen_names:
+                        # Use directory name as canonical name if different
+                        metadata["dir"] = skill_dir.name
+                        skills.append(metadata)
 
         return skills
 
@@ -62,8 +107,8 @@ class SkillLoader:
         Returns:
             Full skill markdown content or None if not found
         """
-        skill_file = self.skills_dir / f"{skill_name}.md"
-        if not skill_file.exists():
+        skill_file = self._find_skill_file(skill_name)
+        if not skill_file:
             return None
 
         return skill_file.read_text()

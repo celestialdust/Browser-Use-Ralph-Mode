@@ -651,21 +651,6 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
               </div>
             )}
             <div className="flex items-start gap-2 px-[18px] pt-[14px]">
-              {/* Upload button - left of textarea */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={attachedImage !== null}
-                className={cn(
-                  "p-2 rounded transition-colors flex-shrink-0",
-                  attachedImage
-                    ? "opacity-50 cursor-not-allowed text-muted-foreground"
-                    : "hover:bg-muted text-muted-foreground hover:text-primary"
-                )}
-                aria-label="Attach image"
-              >
-                <Paperclip size={18} />
-              </button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -683,27 +668,41 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
                 rows={1}
               />
             </div>
-            <div className="flex justify-between gap-2 p-3">
-              <div className="flex justify-end gap-2">
-                <Button
-                  type={isLoading ? "button" : "submit"}
-                  variant={isLoading ? "destructive" : "default"}
-                  onClick={isLoading ? stopStream : handleSubmit}
-                  disabled={!isLoading && (submitDisabled || (!input.trim() && !attachedImage))}
-                >
-                  {isLoading ? (
-                    <>
-                      <Square size={14} />
-                      <span>Stop</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowUp size={18} />
-                      <span>Send</span>
-                    </>
-                  )}
-                </Button>
-              </div>
+            <div className="flex justify-between items-center gap-2 px-3 pb-3">
+              {/* Upload button - bottom left */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachedImage !== null}
+                className={cn(
+                  "p-2 rounded transition-colors flex-shrink-0",
+                  attachedImage
+                    ? "opacity-50 cursor-not-allowed text-muted-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-primary"
+                )}
+                aria-label="Attach image"
+              >
+                <Paperclip size={18} />
+              </button>
+              {/* Send button - bottom right */}
+              <Button
+                type={isLoading ? "button" : "submit"}
+                variant={isLoading ? "destructive" : "default"}
+                onClick={isLoading ? stopStream : handleSubmit}
+                disabled={!isLoading && (submitDisabled || (!input.trim() && !attachedImage))}
+              >
+                {isLoading ? (
+                  <>
+                    <Square size={14} />
+                    <span>Stop</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowUp size={18} />
+                    <span>Send</span>
+                  </>
+                )}
+              </Button>
             </div>
           </form>
         </div>
