@@ -157,6 +157,18 @@ export function useChat({
     experimental_thread: thread,
   });
 
+  // Clear browser session when switching threads to prevent stale connections
+  const prevThreadIdRef = useRef<string | null>(threadId);
+  useEffect(() => {
+    // Only clear if thread actually changed (not on initial mount)
+    if (prevThreadIdRef.current !== null && threadId !== prevThreadIdRef.current) {
+      console.log("[useChat] Thread changed, clearing browser session state");
+      // Use functional update to avoid unnecessary re-renders if already null
+      setBrowserSession((prev) => prev === null ? prev : null);
+    }
+    prevThreadIdRef.current = threadId;
+  }, [threadId]);
+
   // Detect browser tool calls and manage browser session state
   useEffect(() => {
     // Prioritize backend-provided browser_session

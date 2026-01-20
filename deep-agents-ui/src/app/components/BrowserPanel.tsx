@@ -110,12 +110,27 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
     hasConnectedOnceRef.current = false;
   }, [streamUrl]);
 
-  // Explicit cleanup when session becomes inactive
+  // Track previous isActive to detect transitions
+  const prevIsActiveRef = useRef(isActive);
+
+  // Explicit cleanup when session transitions from active to inactive
   useEffect(() => {
-    if (!isActive && wsRef.current) {
-      console.log("[BrowserPanelContent] Session ended, closing WebSocket");
-      wsRef.current.close(1000, "Session ended");
-      wsRef.current = null;
+    const wasActive = prevIsActiveRef.current;
+    prevIsActiveRef.current = isActive;
+
+    // Only cleanup when transitioning from active to inactive (not on mount)
+    if (wasActive && !isActive) {
+      console.log("[BrowserPanelContent] Session became inactive, cleaning up");
+
+      // Clear any connection errors when session is marked inactive
+      setConnectionError(null);
+      setIsConnecting(false);
+      hasConnectedOnceRef.current = false;
+
+      if (wsRef.current) {
+        wsRef.current.close(1000, "Session ended");
+        wsRef.current = null;
+      }
       // Cancel any pending reconnection attempts
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -193,13 +208,9 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
               MAX_RETRY_DELAY
             );
 
-            // Only show error after grace period
+            // Log retry progress (don't show error until max retries reached)
             if (currentAttempts >= SILENT_RETRY_ATTEMPTS && !hasConnectedOnceRef.current && wasAbnormal) {
-              console.error("[BrowserPanel] Connection failed after grace period");
-              const port = latestStreamUrl.split(":").pop();
-              setConnectionError(
-                `Unable to connect to browser stream at ${latestStreamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`
-              );
+              console.log(`[BrowserPanel] Connection attempt ${currentAttempts + 1}/${MAX_RETRIES} failed (past grace period)`);
             } else if (hasConnectedOnceRef.current) {
               console.log(`[BrowserPanel] Connection lost, reconnecting in ${backoffDelay}ms...`);
             } else if (currentAttempts < SILENT_RETRY_ATTEMPTS) {
@@ -213,13 +224,12 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
             return currentAttempts + 1;
           } else if (currentAttempts >= MAX_RETRIES) {
             if (hasConnectedOnceRef.current) {
-              console.log("[BrowserPanel] Session ended (possibly timed out)");
-              setConnectionError("Browser session ended. The session may have timed out due to inactivity.");
+              console.log("[BrowserPanel] Session expired");
+              setConnectionError("Browser session expired. The session timed out due to inactivity. Start a new browser task to continue.");
             } else {
               console.error("[BrowserPanel] Failed to connect after max retries");
-              const port = latestStreamUrl?.split(":").pop() || "9223";
               setConnectionError(
-                `Unable to connect to browser stream at ${latestStreamUrl}. Ensure AGENT_BROWSER_STREAM_PORT=${port} is set when starting the backend.`
+                "Unable to connect to browser stream. The browser session may have ended. Start a new browser task to continue."
               );
             }
           }
