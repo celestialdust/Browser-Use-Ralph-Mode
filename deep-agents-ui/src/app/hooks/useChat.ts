@@ -161,7 +161,18 @@ export function useChat({
   useEffect(() => {
     // Prioritize backend-provided browser_session
     if (stream.values.browser_session) {
-      setBrowserSession(stream.values.browser_session);
+      // Only update if values actually changed to prevent infinite loops
+      const backendSession = stream.values.browser_session;
+      setBrowserSession((prev) => {
+        if (
+          prev?.sessionId === backendSession.sessionId &&
+          prev?.streamUrl === backendSession.streamUrl &&
+          prev?.isActive === backendSession.isActive
+        ) {
+          return prev; // No change, return same reference
+        }
+        return backendSession;
+      });
       return;
     }
     
