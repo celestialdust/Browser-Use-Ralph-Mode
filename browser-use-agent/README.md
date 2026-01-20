@@ -108,8 +108,11 @@ python agent.py --thread-id my-session --task "Fill out a form on example.com"
 
 Start the LangGraph development server:
 ```bash
-langgraph dev --port 2024
+source .venv/bin/activate
+langgraph dev --port 2024 --allow-blocking
 ```
+
+**Note:** The `--allow-blocking` flag is required because the agent uses synchronous blocking calls (e.g., for git operations in `StorageConfig`). Without this flag, LangGraph will detect blocking I/O and fail to start.
 
 The agent will be available at `http://127.0.0.1:2024` with graph ID `browser-agent`.
 
