@@ -92,8 +92,9 @@ Navigation (3):
 - browser_forward() - Go forward in history
 - browser_reload() - Reload current page
 
-Info (2):
+Info (3):
 - browser_get_info(type, ref?) - Get text/html/value/url/title
+- browser_eval(script) - Execute JavaScript in browser (e.g., "document.title", "localStorage.getItem('key')")
 - browser_console() - Get console logs for debugging
 
 Human-in-the-loop (3):
