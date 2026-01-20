@@ -74,6 +74,7 @@ class Config:
         "browser_is_visible",
         "browser_is_enabled",
         "browser_is_checked",
+        "browser_eval",
         "browser_console",
     }
     

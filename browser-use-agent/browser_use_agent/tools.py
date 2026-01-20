@@ -792,6 +792,32 @@ def browser_get_info(info_type: str, thread_id: str, ref: Optional[str] = None) 
 
 
 # ============================================================================
+# Execute JavaScript
+# ============================================================================
+
+@tool
+def browser_eval(script: str, thread_id: str) -> str:
+    """Execute JavaScript code in the browser context.
+
+    Args:
+        script: JavaScript code to execute (e.g., "document.title", "window.scrollY")
+        thread_id: Thread identifier for session isolation
+
+    Returns:
+        Result of JavaScript execution or error message.
+        If output is large (>1000 chars), saves to file and returns reference.
+    """
+    _update_activity(thread_id)
+    result = _run_browser_command(thread_id, ["eval", script])
+
+    if result["success"]:
+        output = result["output"].strip() if result["output"] else "Script executed (no return value)"
+        return _handle_output(output, thread_id, "eval")
+    else:
+        return f"Failed to execute script: {result['error']}"
+
+
+# ============================================================================
 # Debug Commands (console)
 # ============================================================================
 
@@ -837,6 +863,8 @@ BROWSER_TOOLS = [
     browser_reload,
     # Get info
     browser_get_info,
+    # Execute JavaScript
+    browser_eval,
     # Debug
     browser_console,
     # Human-in-the-loop tools
