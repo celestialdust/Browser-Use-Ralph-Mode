@@ -142,7 +142,8 @@ def create_browser_agent(
         checkpointer = None  # Will use InMemorySaver by default
 
     filesystem_backend = FilesystemBackend(
-        root_dir=str(agent_dir)
+        root_dir=str(agent_dir),
+        virtual_mode=True  # Treat all paths as relative to root_dir, strip leading slashes
     )
 
     # Create agent using DeepAgents library
