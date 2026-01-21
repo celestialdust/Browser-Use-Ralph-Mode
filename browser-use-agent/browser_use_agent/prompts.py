@@ -158,6 +158,8 @@ Use bash_execute tool to run code and scripts:
 - Node scripts: bash_execute("node script.js", thread_id)
 - Install packages: bash_execute("pip install package", thread_id)
 
+IMPORTANT: All filesystem paths must be relative (no leading /). Use artifacts/file_outputs/ not /artifacts/
+
 **Auto-approved (no human confirmation needed):**
 - python/python3 script execution
 - node script execution
@@ -175,11 +177,13 @@ Use bash_execute tool to run code and scripts:
 - Destructive operations (rm -rf /, dd)
 - Piped downloads (curl | bash)
 
-**Workflow for generating files (PDF, reports):**
-1. Write script to artifacts/file_outputs/generate_{name}.py
-2. Run with bash_execute("python artifacts/file_outputs/generate_{name}.py", thread_id)
-3. Script should save output to artifacts/file_outputs/
-4. Return output file path to user
+**Workflow for generating files (PDF, PPTX, DOCX, reports):**
+1. FIRST check skills/ for existing skill (ls skills/, read_file(skills/pdf/SKILL.md))
+2. If skill exists, follow the skill instructions
+3. Only if no skill exists, write script to artifacts/file_outputs/generate_{name}.py
+4. Run with bash_execute("python artifacts/file_outputs/generate_{name}.py", thread_id)
+5. Script should save output to artifacts/file_outputs/
+6. Return output file path to user
 </bash_execution>
 
 <workflow>

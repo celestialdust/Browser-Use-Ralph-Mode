@@ -172,7 +172,7 @@ export function ToolApprovalInterrupt({
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Arguments
             </span>
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 p-2 font-mono text-xs text-foreground">
+            <pre className="mt-2 max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 p-2 font-mono text-xs text-foreground">
               {JSON.stringify(actionRequest.args, null, 2)}
             </pre>
           </div>
