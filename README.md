@@ -76,21 +76,6 @@ Browser-Use/
 └── README.md                 # This file
 ```
 
-## 🆕 Recent Updates
-
-### v4.5 - Human-in-the-Loop & Bash Execution (2026-01-20)
-- **Human Loop UI**: New `HumanLoopInterrupt` component surfaces agent requests for guidance, credentials, and confirmations directly in the UI
-- **Bash Tool**: Execute scripts and commands with 3-tier security (auto-approve safe commands, require approval for others, block dangerous)
-- **Browser Session Sync**: Frontend now stays in sync when backend closes browser sessions via timeout
-- **Subagent Communication**: Interrupts from subagents now bubble up to the frontend for human response
-- **Memory Structure Overhaul**: Standardized `AGENTS.md` format, new `USER_PREFERENCES.md`, fixed paths in prompts
-- **Parallel Execution Guidance**: System prompt now teaches agent when to use task tool for parallel work
-
-### v4.4 - Credential Handling & CDP Support
-- **Smart Credential Handling**: Agent now uses credentials provided directly in chat instead of repeatedly prompting via `request_credentials` tool
-- **CDP Support**: Connect to existing Chrome browser via Chrome DevTools Protocol (`USE_CDP=true`)
-- **Interrupt Handling Fix**: Added `multitaskStrategy: "interrupt"` to prevent new messages from cancelling pending tool calls
-
 ## ✨ Features
 
 ### DeepAgents Integration

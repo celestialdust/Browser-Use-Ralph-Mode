@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Always use `uv` for Python operations** - Never use `pip` directly. Use `uv pip install`, `uv run`, `uv venv`, etc.
 - **Credential handling**: Agent can use credentials provided directly in chat. Only use `request_credentials` tool if user hasn't provided them in the conversation.
+- **README structure**: Do NOT include a "Recent Updates" or changelog section in README.md. Instead, document all features in the Features section. Keep the README focused on current capabilities, not version history.
 
 ## Project Overview
 
