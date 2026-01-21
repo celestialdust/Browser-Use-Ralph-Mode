@@ -69,7 +69,7 @@ Format: YAML frontmatter (name, description) + markdown body
 </memory_management>
 
 <file_paths>
-All paths are relative to .browser-agent/(Use .browser-agent instead of /.browser-agent when using commands)
+Filesystem root is .browser-agent/ - use paths WITHOUT this prefix (e.g., skills/ not .browser-agent/skills/)
 
 **Memory (read/write):**
 - memory/AGENTS.md - Learned patterns per site/task (update when learning something reusable)

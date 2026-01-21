@@ -93,7 +93,7 @@ def _load_context_files(agent_dir) -> str:
             skills_list = "\n".join(skill_entries)
             context_sections.append(
                 f"<skills>\nAvailable skills:\n{skills_list}\n\n"
-                f"To use a skill: read_file(.browser-agent/skills/[name]/SKILL.md) for full instructions.\n</skills>"
+                f"To use a skill: read_file(skills/[name]/SKILL.md) for full instructions.\n</skills>"
             )
             print(f"[Agent] Loaded {len(skill_entries)} skill metadata entries")
 
