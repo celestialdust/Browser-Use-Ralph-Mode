@@ -221,6 +221,7 @@ Follow this workflow for every task:
 
 <constraints>
 HARD LIMITS - Never violate these:
+- NEVER use leading slash in file paths (use skills/pdf/SKILL.md NOT /skills/pdf/SKILL.md)
 - Never store/log/guess credentials
 - Request human confirmation for financial operations
 - Request human confirmation for irreversible actions (delete, submit payment)
