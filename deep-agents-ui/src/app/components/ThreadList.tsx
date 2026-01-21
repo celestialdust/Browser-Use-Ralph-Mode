@@ -214,10 +214,10 @@ export function ThreadList({
                         )}
                         aria-current={currentThreadId === thread.id}
                       >
-                        <div className="flex items-center gap-2 w-full min-w-0">
+                        <div className="flex items-center gap-2 overflow-hidden">
                           <MessageSquare className="h-4 w-4 flex-shrink-0" />
                           <span
-                            className="flex-1 min-w-0 text-sm font-medium truncate"
+                            className="flex-1 w-0 text-sm font-medium overflow-hidden whitespace-nowrap text-ellipsis"
                             title={thread.title}
                           >
                             {thread.title}
