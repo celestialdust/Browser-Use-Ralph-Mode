@@ -12,15 +12,12 @@ def init_agent_directories():
         ├── checkpoints/           # SQLite checkpoints (if local)
         ├── memory/                # Agent memory files
         │   ├── AGENTS.md
-        │   ├── USER_PREFERENCES.md
-        │   └── domains/           # Per-domain knowledge
+        │   └── USER_PREFERENCES.md
         ├── skills/                # Auto-generated and custom skills
-        ├── settings/              # Agent configuration
-        │   ├── config.json
-        │   └── credentials.json   # Encrypted credentials
         ├── artifacts/             # Session artifacts
         │   ├── screenshots/
-        │   └── sessions/
+        │   ├── file_outputs/
+        │   └── tool_outputs/
         └── traces/                # Cached LangSmith traces
     """
     agent_dir = StorageConfig.get_agent_dir()
@@ -29,9 +26,7 @@ def init_agent_directories():
     subdirs = [
         "checkpoints",
         "memory",
-        "memory/domains",
         "skills",
-        "settings",
         "artifacts/screenshots",
         "artifacts/file_outputs",
         "artifacts/tool_outputs",
@@ -84,7 +79,6 @@ Max tokens: 2000 (enforced by UserPreferencesManager)
     gitignore = agent_dir / ".gitignore"
     if not gitignore.exists():
         gitignore.write_text("""# Ignore sensitive and generated files
-settings/credentials.json
 traces/
 checkpoints/*.db
 checkpoints/*.db-*
@@ -105,9 +99,7 @@ def get_or_create_user_agent_dir() -> Path:
         ├── memory/
         │   ├── AGENTS.md
         │   └── USER_PREFERENCES.md
-        ├── skills/
-        └── settings/
-            └── global_config.json
+        └── skills/
     """
     user_dir = Path.home() / ".browser-agent"
     user_dir.mkdir(parents=True, exist_ok=True)
@@ -115,7 +107,6 @@ def get_or_create_user_agent_dir() -> Path:
     # Create subdirectories
     (user_dir / "memory").mkdir(exist_ok=True)
     (user_dir / "skills").mkdir(exist_ok=True)
-    (user_dir / "settings").mkdir(exist_ok=True)
 
     # Create initial files
     agents_md = user_dir / "memory" / "AGENTS.md"
