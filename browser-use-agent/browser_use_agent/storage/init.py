@@ -33,7 +33,8 @@ def init_agent_directories():
         "skills",
         "settings",
         "artifacts/screenshots",
-        "artifacts/sessions",
+        "artifacts/file_outputs",
+        "artifacts/tool_outputs",
         "traces",
     ]
 
@@ -84,7 +85,6 @@ Max tokens: 2000 (enforced by UserPreferencesManager)
     if not gitignore.exists():
         gitignore.write_text("""# Ignore sensitive and generated files
 settings/credentials.json
-artifacts/sessions/
 traces/
 checkpoints/*.db
 checkpoints/*.db-*
