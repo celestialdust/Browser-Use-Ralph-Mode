@@ -1,0 +1,50 @@
+{
+  "trace_id": "019bda1f-5bda-7bc3-a76c-15d95dd1d279",
+  "messages": [
+    {
+      "role": "user",
+      "id": "80034632-022f-4dd7-8c51-bc63caa37593",
+      "content": "Help me get the most recent released 5 AI Engineer jobs on linkedin, including their job title, description and publish date present to me as a markdown file"
+    }
+  ],
+  "metadata": {
+    "status": "error",
+    "start_time": "2026-01-20T06:37:27.852731",
+    "end_time": "2026-01-20T06:37:36.174350",
+    "duration_ms": 8321,
+    "custom_metadata": {
+      "LANGSMITH_LANGGRAPH_API_VARIANT": "local_dev",
+      "LANGSMITH_PROJECT": "browser-use",
+      "LANGSMITH_TRACING": "true",
+      "assistant_id": "c7af37a7-2a79-524b-9799-ec89e899f31d",
+      "created_by": "system",
+      "graph_id": "browser-agent",
+      "langgraph_api_url": "http://127.0.0.1:2024",
+      "langgraph_api_version": "0.7.0",
+      "langgraph_auth_user_id": "",
+      "langgraph_host": "self-hosted",
+      "langgraph_plan": "developer",
+      "langgraph_request_id": "29925b77-1e1f-40db-8aba-a9f507e61086",
+      "langgraph_version": "1.0.6",
+      "ls_run_depth": 0,
+      "revision_id": "46ac014",
+      "run_attempt": 1,
+      "run_id": "019bda1f-5bda-7bc3-a76c-15d95dd1d279",
+      "thread_id": "a950b004-d59b-463b-a781-a645c4d6cfcf",
+      "user_id": ""
+    },
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "costs": {
+      "prompt_cost": null,
+      "completion_cost": null,
+      "total_cost": null
+    },
+    "first_token_time": null,
+    "feedback_stats": {}
+  },
+  "feedback": []
+}

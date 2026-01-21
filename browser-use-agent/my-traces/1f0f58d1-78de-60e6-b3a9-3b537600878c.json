@@ -1,0 +1,71 @@
+[
+  {
+    "role": "user",
+    "id": "48765823-3a99-495f-8103-58b594539cd7",
+    "content": "Find out the most recent 5 AI Engineer post and their job description on linkedin without login"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "type": "function",
+        "id": "call_cpTs4DjlYhXISCA6kxU6k4FC",
+        "function": {
+          "name": "write_todos",
+          "arguments": "{\"todos\": [{\"content\": \"Confirm plan and any preferences (location, filters like remote or experience level) with you\", \"status\": \"in_progress\"}, {\"content\": \"Navigate to LinkedIn Jobs for \u201cAI Engineer\u201d and sort by Most Recent (no login)\", \"status\": \"pending\"}, {\"content\": \"Collect the first 5 job cards\u2019 links and metadata (title, company, location, posted time)\", \"status\": \"pending\"}, {\"content\": \"Open each job link and extract the job description text (no login)\", \"status\": \"pending\"}, {\"content\": \"Deliver a concise report with title, company, location, posted time, direct link, and description for each of the 5 jobs\", \"status\": \"pending\"}]}"
+        }
+      }
+    ],
+    "id": "resp_01c92a2db51e312d00696ebba829648194a4e6788d0b199d82",
+    "content": [
+      {
+        "id": "rs_01c92a2db51e312d00696ebbaa0ab8819492d4366783881652",
+        "summary": [
+          {
+            "index": 0,
+            "type": "summary_text",
+            "text": "**Planning job search**\n\nI\u2019m going to start by opening LinkedIn Jobs to search for \"AI Engineer\" positions and sorting by the most recent ones. My plan is to scrape the first five job cards to gather details like the title, company, and location before diving into each job's detail page. \n\nI\u2019ll extract the descriptions and then summarize them, focusing on clarity while avoiding heavy formatting. It might be wise to ask for the user\u2019s approval first before proceeding, as the workflow suggests waiting for that."
+          },
+          {
+            "index": 1,
+            "type": "summary_text",
+            "text": "**Clarifying the plan execution**\n\nI need to propose the plan items and carefully consider how to record it. I shouldn\u2019t call write_todos unless I'm ready to proceed, but I can use it to log the plan. The tool suggests I should ask the user if the plan looks good before starting. However, the documentation says to mark the task as \"in progress\" before beginning. This leads to a bit of a conflict, and I want to ensure I'm following the right steps."
+          },
+          {
+            "index": 2,
+            "type": "summary_text",
+            "text": "**Reconciling task management guidelines**\n\nI see there\u2019s a bit of confusion in the guidelines about writing todos and asking for user approval before executing. The developer states that I need to mark the first task as \"in progress\" immediately, but I also need to ask the user if the plan looks good first.\n\nMaybe I can mark the planning stage as \"in progress\" without jumping into execution tasks yet. The first task could be \u201cConfirm plan with user,\u201d which feels like a good fit!"
+          },
+          {
+            "index": 3,
+            "type": "summary_text",
+            "text": "**Outlining tasks for job search**\n\nI\u2019m outlining the plan now with a series of tasks. First, I need to navigate to LinkedIn Jobs using the keywords \"AI Engineer\" and sort the results by the most recent postings. Then, I\u2019ll collect the first five job links and their metadata without needing to log in. Next, I\u2019ll open each link to extract the job descriptions. Finally, I\u2019ll summarize the results, including titles, companies, locations, and posted times. I should ask if the user approves this plan before I start browsing. I'll use functions.write_todos for this."
+          }
+        ],
+        "type": "reasoning",
+        "encrypted_content": "gAAAAABpbruqqtWuAdPidxiKfxyfe3fp2nhm4vVwf2k7ZVpFiVy2XA734j0BpITPM9N0_u-AUeSyQ0dlu292LGkbw25KUhRFezPvpIIdmYVddMXwetPUdAnM_AHq4l3OrSGOaIMOZhbbVLcYCECkY23RKoof5aXlVV5m-0qi3NJAM4MOUsFIYk-bjNghyOXSYS2fSyQTJqfE6aHo8CUVWBqpoVi9qPcSdSCQMJ_3bPipdg22_15o9ivF-zE8BaWgsT8hwTU1RgXdPQ4PYl06kceotQem2BiXOgtvg55b0Xbbz7CKzJgrtG5b6NizivGVUTtoHDg2qXAWannfn8KOr80GWEF8VIGXzMlNTbmY8-XRWZkS22W_SK4fvGl4R8rkmi8GM-hr1sMOvthRpM3L52AHz9WIaurECKiYU7_XMylcQeTQ0442GatzrgAUvZsHNaiJRXsQMU4Pr6vAqaerVCpOmj0nAHNjwUXhKCK1EGJHCzq7yw2l1xHfXgSYpxrNOoLX6IQ-wm_z0uA_V20VocEZw0lMNldw05QkAEY31Pu1biliKaAhedAZHAh4w3xuctNnIQGFG-c3CYA6DsYre9efFzoi3o9vLywDTTIVM737E8-9fzVLb_p9k8WjniY5JOFdHydDm3GMDRdgVTx7QSIHoXEqn--nPIM3Q7HV87eF6zVsr6XWoutiRMKixzT6NLpRrbPLxUpUzTJinHtNHuXnzlHsQasvaqZT7V5-kx6o83r5JrbzcQAtdBDuFgu4tYbRVGKZdbcGaiJsFFVuD0kV-WTilYGt8ShyvwjBsAuQj-h2sKRZLC0=",
+        "index": 0
+      },
+      {
+        "type": "function_call",
+        "name": "write_todos",
+        "arguments": "{\"todos\":[{\"content\":\"Confirm plan and any preferences (location, filters like remote or experience level) with you\",\"status\":\"in_progress\"},{\"content\":\"Navigate to LinkedIn Jobs for \u201cAI Engineer\u201d and sort by Most Recent (no login)\",\"status\":\"pending\"},{\"content\":\"Collect the first 5 job cards\u2019 links and metadata (title, company, location, posted time)\",\"status\":\"pending\"},{\"content\":\"Open each job link and extract the job description text (no login)\",\"status\":\"pending\"},{\"content\":\"Deliver a concise report with title, company, location, posted time, direct link, and description for each of the 5 jobs\",\"status\":\"pending\"}]}",
+        "call_id": "call_cpTs4DjlYhXISCA6kxU6k4FC",
+        "id": "fc_01c92a2db51e312d00696ebbb4301c8194a3a87441d63923ee",
+        "index": 1
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "write_todos",
+    "tool_call_id": "call_cpTs4DjlYhXISCA6kxU6k4FC",
+    "id": "36f19334-8cac-43b3-b4dc-0691a324845e",
+    "content": "Updated todo list to [{'content': 'Confirm plan and any preferences (location, filters like remote or experience level) with you', 'status': 'in_progress'}, {'content': 'Navigate to LinkedIn Jobs for \u201cAI Engineer\u201d and sort by Most Recent (no login)', 'status': 'pending'}, {'content': 'Collect the first 5 job cards\u2019 links and metadata (title, company, location, posted time)', 'status': 'pending'}, {'content': 'Open each job link and extract the job description text (no login)', 'status': 'pending'}, {'content': 'Deliver a concise report with title, company, location, posted time, direct link, and description for each of the 5 jobs', 'status': 'pending'}]"
+  },
+  {
+    "role": "assistant",
+    "id": "resp_01c92a2db51e312d00696ebbb5ab948194a819f5583a46fdcf",
+    "content": "Here\u2019s my plan \u2014 does this look good?\n\n- Confirm any preferences you have (location, remote/hybrid, experience level) before I start\n- Navigate to LinkedIn Jobs for \u201cAI Engineer\u201d and sort by Most Recent (without login)\n- Collect the first 5 job cards\u2019 links and metadata (title, company, location, posted time)\n- Open each job link and extract the job description text (no login)\n- Deliver a concise report with title, company, location, posted time, direct link, and the job description for each of the 5 roles\n\nPlease let me know:\n- Any location preferences or should I search globally?\n- Include only remote roles or all?\n- Any experience level filter (entry/mid/senior)?"
+  }
+]

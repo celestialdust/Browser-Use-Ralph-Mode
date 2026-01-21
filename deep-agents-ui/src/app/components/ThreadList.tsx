@@ -150,7 +150,7 @@ export function ThreadList({
   }, [interruptedCount, onInterruptCountChange]);
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-background">
+    <div className="absolute inset-0 flex flex-col bg-background overflow-hidden">
       {/* New Thread button at the top - Claude style */}
       <div className="flex-shrink-0 p-3">
         {onNewThread && (
@@ -172,7 +172,7 @@ export function ThreadList({
         </h3>
       </div>
 
-      <ScrollArea className="h-0 flex-1">
+      <ScrollArea className="h-0 flex-1 w-full overflow-hidden">
         {threads.error && <ErrorState message={threads.error.message} />}
 
         {!threads.error && !threads.data && threads.isLoading && (
@@ -182,7 +182,7 @@ export function ThreadList({
         {!threads.error && !threads.isLoading && isEmpty && <EmptyState />}
 
         {!threads.error && !isEmpty && (
-          <div className="box-border w-full max-w-full overflow-hidden px-2 pb-2">
+          <div className="w-full overflow-hidden px-2 pb-2">
             {(
               Object.keys(GROUP_LABELS) as Array<keyof typeof GROUP_LABELS>
             ).map((group) => {

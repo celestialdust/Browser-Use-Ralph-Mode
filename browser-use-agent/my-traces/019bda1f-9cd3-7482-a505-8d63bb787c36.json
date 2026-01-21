@@ -1,0 +1,119 @@
+{
+  "trace_id": "019bda1f-9cd3-7482-a505-8d63bb787c36",
+  "messages": [
+    {
+      "role": "user",
+      "id": "71a040ae-f774-4701-a5ac-badd8cf3c100",
+      "content": "Help me get the most recent released 5 AI Engineer jobs on linkedin, including their job title, description and publish date present to me as a markdown file"
+    },
+    {
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "type": "function",
+          "id": "call_kpv9Zqi4LJpWH5H9qymbA6rA",
+          "function": {
+            "name": "write_todos",
+            "arguments": "{\"todos\": [{\"content\": \"Confirm the plan and whether to log into LinkedIn or proceed as guest (to ensure access to full descriptions and publish dates).\", \"status\": \"in_progress\"}, {\"content\": \"Start a browser session and navigate to LinkedIn Jobs; search for \u201cAI Engineer\u201d, sort by most recent, and collect the top 5 listings.\", \"status\": \"pending\"}, {\"content\": \"Open each job detail page and extract job title, full description, and publish date.\", \"status\": \"pending\"}, {\"content\": \"Compile the extracted data into a clean markdown file at /outputs/ai-engineer-linkedin-latest.md.\", \"status\": \"pending\"}, {\"content\": \"Close the browser session and deliver the file and a brief summary.\", \"status\": \"pending\"}]}"
+          }
+        }
+      ],
+      "id": "resp_03f7d8766cfb578c00696f22b97adc819085d8ec1e0ed006b7",
+      "content": [
+        {
+          "id": "rs_03f7d8766cfb578c00696f22bc06d0819098930867c690d65b",
+          "summary": [
+            {
+              "index": 0,
+              "type": "summary_text",
+              "text": "**Fetching AI Engineer jobs**\n\nI need to fetch the most recent AI Engineer job listings on LinkedIn, including details like job title, description, and publish date, all in a markdown format. LinkedIn often requires a login to view full job details. If the user hasn't provided credentials, I should request them securely. I could try to browse without logging in, but anti-bot measures might complicate things. Navigating and scraping LinkedIn for the latest five jobs could be tricky!"
+            },
+            {
+              "index": 1,
+              "type": "summary_text",
+              "text": "**Considering job search options**\n\nAnother route could be to use third-party job aggregators like Indeed or Google Jobs, but since the user specifically asked for LinkedIn, I should follow that direction. I may need to request LinkedIn credentials securely, but that could feel risky. It's not financial, but I have to ensure I don\u2019t store any credentials. I can use the request_credentials tool to obtain them. The user wants the latest five AI Engineer jobs, and this requires a clear, structured plan!"
+            },
+            {
+              "index": 2,
+              "type": "summary_text",
+              "text": "**Creating a task plan**\n\nI\u2019m planning my approach. First, I might ask for LinkedIn credentials to browse jobs. Then, I can navigate to the LinkedIn job search for \"AI Engineer\" and sort the results by the most recent postings. After that, I'll open the top five listings to scrape the title, description, and publish date. I\u2019ll compile this into a markdown file and provide the user with a summary and a link. However, I need to ensure the user approves this plan before I start anything!"
+            },
+            {
+              "index": 3,
+              "type": "summary_text",
+              "text": "**Refining the task plan**\n\nI see that I need to mark the first task as in progress immediately while also confirming the plan with the user before proceeding. I can make \"Confirm plan with user\" the first task, set it to in progress, and then ask for their approval. Once they approve, I can mark it as completed and move ahead. I\u2019ll outline the tasks, confirming whether to log into LinkedIn. I'll ensure to gather the top five job listings, compile them into a markdown file, and deliver. I'll ask the user for credentials only after they approve the plan!"
+            },
+            {
+              "index": 4,
+              "type": "summary_text",
+              "text": "**Planning the LinkedIn job search**\n\nI can ask the user for their LinkedIn credentials if they're comfortable, or I could attempt to browse without logging in. I need to clarify that signing in might be necessary to see full job details. I'll prompt the user for their credentials securely if they want me to log in. Until then, I won't start any browser actions. \n\nI\u2019m also considering the complexity of extracting job listings and crafting a markdown file. Let\u2019s create a task list that includes confirming the plan, browsing LinkedIn, extracting job details, and finally compiling everything into a markdown file, saving it in the specified location. I'll make sure to ask the user about location preferences too!"
+            }
+          ],
+          "type": "reasoning",
+          "encrypted_content": "gAAAAABpbyK8trhFEE6R0LHbhnl1Kyz2amwlwOVv-GjxHVXTeQbmh0lda9HRHIebENPDIb7-kkZY_cM-o_vy3EcRQtgC0uO6eQrpFqvKoCiX6B-8RKg4pTczFU28UBw0q5vmsHeYEjDh7UAsV8CUwQbGuHiYKi1E-3ABdsizdOMUgDZBv1_WpziDLVqjLSmUlfNCH1qq5KTRvNRf7PsRDUv0pqR3iuOzv_-ZXB_X006PwP7FzCjavGFFU72g4598vdYwfWkdHujIkmf6iNcHXs65O2bAnu9f-7O2SVVTKvpsIZ_keZzthwkF5aW9ZvQLWFzctIO4bqs6_qA6_kzU0IkoLUbvqu__lb5v5wGSx8zyhWyhMdiaxXMolXYOn_dbcn12nJVD1cqx62M0xhWENRiSjDA4m2rYQYUh9dEQlP37I8HzYmGe1S4gWMmDAmK-yy3bODps6xTPAgAdur3FZadeQ-emU9F2zMCheicz4LlKl00JgW2FvUiLv_Gge2Mflh5dtvP7ncR__q93ppQcvV62f1czcKbDgIqSLpIEmioD1GjnbDY-oStneKDDoKcj8x2ZrJSq31WJ--jjOtX0V9RFIZfLXxAiCY-yqfIW9z49gTPwArSTVGVoG_7v7bXA2wpK84MDu1z9T4jNfD3pirUw84v1eZ8kWW6jxN_XnU8iHGNV1Usu1r8wbcJHY_MaBBzQNg03mcQdoKhj0R-srD-q4SWvX3ZonUO7T-o1yIWYGADSWAdolsM--wwUQsW_63S85Im4i4S1lZWbPLZitapVuuUo0HMDajzyPQO1TX3g-91oUjtaksI=",
+          "index": 0
+        },
+        {
+          "type": "function_call",
+          "name": "write_todos",
+          "arguments": "{\"todos\":[{\"content\":\"Confirm the plan and whether to log into LinkedIn or proceed as guest (to ensure access to full descriptions and publish dates).\",\"status\":\"in_progress\"},{\"content\":\"Start a browser session and navigate to LinkedIn Jobs; search for \u201cAI Engineer\u201d, sort by most recent, and collect the top 5 listings.\",\"status\":\"pending\"},{\"content\":\"Open each job detail page and extract job title, full description, and publish date.\",\"status\":\"pending\"},{\"content\":\"Compile the extracted data into a clean markdown file at /outputs/ai-engineer-linkedin-latest.md.\",\"status\":\"pending\"},{\"content\":\"Close the browser session and deliver the file and a brief summary.\",\"status\":\"pending\"}]}",
+          "call_id": "call_kpv9Zqi4LJpWH5H9qymbA6rA",
+          "id": "fc_03f7d8766cfb578c00696f22cac43481908c2754a74e9af3ea",
+          "index": 1
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "write_todos",
+      "tool_call_id": "call_kpv9Zqi4LJpWH5H9qymbA6rA",
+      "id": "ba4ba4bb-6174-4a5d-85a4-3412117e9932",
+      "content": "Updated todo list to [{'content': 'Confirm the plan and whether to log into LinkedIn or proceed as guest (to ensure access to full descriptions and publish dates).', 'status': 'in_progress'}, {'content': 'Start a browser session and navigate to LinkedIn Jobs; search for \u201cAI Engineer\u201d, sort by most recent, and collect the top 5 listings.', 'status': 'pending'}, {'content': 'Open each job detail page and extract job title, full description, and publish date.', 'status': 'pending'}, {'content': 'Compile the extracted data into a clean markdown file at /outputs/ai-engineer-linkedin-latest.md.', 'status': 'pending'}, {'content': 'Close the browser session and deliver the file and a brief summary.', 'status': 'pending'}]"
+    },
+    {
+      "role": "assistant",
+      "id": "resp_03f7d8766cfb578c00696f22ccca588190928d1bc55966cf18",
+      "content": "Here\u2019s my plan\u2014does this look good?\n\n- Confirm whether you\u2019d like me to log into LinkedIn or proceed as a guest (login helps ensure access to full descriptions and publish dates).\n- Navigate to LinkedIn Jobs, search \u201cAI Engineer\u201d, sort by most recent, and collect the top 5 listings.\n- Open each job detail and extract job title, full description, and publish date.\n- Compile everything into a clean markdown file at /outputs/ai-engineer-linkedin-latest.md.\n- Close the session and deliver the file plus a brief summary.\n\nQuestions:\n- Do you want me to log in to LinkedIn? If yes, I\u2019ll securely request your credentials. Without login, some descriptions/dates might be partially hidden.\n- Any location or remote-only preference, or should I use global results?"
+    }
+  ],
+  "metadata": {
+    "status": "success",
+    "start_time": "2026-01-20T06:37:44.392788",
+    "end_time": "2026-01-20T06:38:08.801435",
+    "duration_ms": 24408,
+    "custom_metadata": {
+      "LANGSMITH_LANGGRAPH_API_VARIANT": "local_dev",
+      "LANGSMITH_PROJECT": "browser-use",
+      "LANGSMITH_TRACING": "true",
+      "assistant_id": "c7af37a7-2a79-524b-9799-ec89e899f31d",
+      "created_by": "system",
+      "graph_id": "browser-agent",
+      "langgraph_api_url": "http://127.0.0.1:2024",
+      "langgraph_api_version": "0.7.0",
+      "langgraph_auth_user_id": "",
+      "langgraph_host": "self-hosted",
+      "langgraph_plan": "developer",
+      "langgraph_request_id": "8540961b-b4a5-403e-be0e-e28a926cc5cd",
+      "langgraph_version": "1.0.6",
+      "ls_run_depth": 0,
+      "revision_id": "46ac014",
+      "run_attempt": 1,
+      "run_id": "019bda1f-9cd3-7482-a505-8d63bb787c36",
+      "thread_id": "b44ca71a-3a9c-40aa-864c-39ba9656da8e",
+      "user_id": ""
+    },
+    "token_usage": {
+      "prompt_tokens": 19398,
+      "completion_tokens": 1546,
+      "total_tokens": 20944
+    },
+    "costs": {
+      "prompt_cost": null,
+      "completion_cost": null,
+      "total_cost": null
+    },
+    "first_token_time": "2026-01-20 06:37:45.715721",
+    "feedback_stats": {}
+  },
+  "feedback": []
+}
