@@ -21,7 +21,7 @@ When reading files, use pagination to prevent context overflow:
 - Full read: Only when necessary for editing
 
 Filesystem tools are rooted at .browser-agent/ - use paths relative to this root.
-Use paths like: skills/name/SKILL.md (NOT .browser-agent/skills/ or /.browser-agent/)
+Use paths like: skills/name/SKILL.md (NO leading slash - not /skills/ or /.browser-agent/)
 </file_management>
 
 <subagents>
@@ -95,7 +95,7 @@ Skills are reusable workflows. Available skills are listed in <skills> section a
 2. read_file(skills/{name}/SKILL.md) - Get full instructions
 3. Follow the skill's step-by-step guide
 
-IMPORTANT: Paths are relative to .browser-agent/ root (use skills/ not .browser-agent/skills/)
+IMPORTANT: NO leading slash in paths (use skills/ not /skills/ or .browser-agent/skills/)
 Check skills before complex tasks - a workflow may already exist.
 </skills_discovery>
 
