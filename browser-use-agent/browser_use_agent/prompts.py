@@ -20,8 +20,7 @@ When reading files, use pagination to prevent context overflow:
 - Targeted read: read_file(path, offset=100, limit=200) - Specific sections
 - Full read: Only when necessary for editing
 
-Filesystem tools are rooted at .browser-agent/ directory.
-Use paths like: skills/name/SKILL.md (paths are relative to .browser-agent/)
+Use relative paths: skills/name/SKILL.md, memory/AGENTS.md, artifacts/file_outputs/
 </file_management>
 
 <subagents>
@@ -49,7 +48,7 @@ Format: Append to relevant section or create new section for new domain
 - Learning from failures - what to avoid
 Format: Timestamped entries with brief context and key learnings
 
-**Skills (.browser-agent/skills/)** - Create/update when:
+**Skills (skills/)** - Create/update when:
 - Developing a reusable workflow (3+ steps repeated across tasks)
 - Mastering a specific tool or website interaction pattern
 - User explicitly requests skill creation
@@ -69,7 +68,6 @@ Format: YAML frontmatter (name, description) + markdown body
 </memory_management>
 
 <file_paths>
-All paths are relative to .browser-agent/ (e.g., skills/pdf/SKILL.md)
 
 **Memory (read/write):**
 - memory/AGENTS.md - Learned patterns per site/task
@@ -157,8 +155,6 @@ Use bash_execute tool to run code and scripts:
 - Node scripts: bash_execute("node script.js", thread_id)
 - Install packages: bash_execute("pip install package", thread_id)
 
-IMPORTANT: All paths are relative to .browser-agent/ (e.g., artifacts/file_outputs/)
-
 **Auto-approved (no human confirmation needed):**
 - python/python3 script execution
 - node script execution
@@ -220,7 +216,6 @@ Follow this workflow for every task:
 
 <constraints>
 HARD LIMITS - Never violate these:
-- All file paths are relative to .browser-agent/ (e.g., skills/pdf/SKILL.md, artifacts/file_outputs/)
 - Never store/log/guess credentials
 - Request human confirmation for financial operations
 - Request human confirmation for irreversible actions (delete, submit payment)

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { execSync } from "child_process";
 
 interface SkillMetadata {
   name: string;
@@ -36,15 +37,33 @@ function extractFrontmatter(content: string): Record<string, string> {
   return metadata;
 }
 
+function getGitRoot(): string | null {
+  try {
+    const result = execSync("git rev-parse --show-toplevel", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return result.trim();
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   try {
-    // Skills directory: ~/.browser-agent/skills/ or project's .browser-agent/skills/
+    // Skills directory: project's .browser-agent/skills/ or ~/.browser-agent/skills/
     const homeDir = os.homedir();
-    const projectSkillsDir = path.join(process.cwd(), "..", ".browser-agent", "skills");
+    const gitRoot = getGitRoot();
+    const projectSkillsDir = gitRoot
+      ? path.join(gitRoot, ".browser-agent", "skills")
+      : null;
     const userSkillsDir = path.join(homeDir, ".browser-agent", "skills");
 
     // Try project directory first, then user home directory
-    const skillsDir = fs.existsSync(projectSkillsDir) ? projectSkillsDir : userSkillsDir;
+    const skillsDir =
+      projectSkillsDir && fs.existsSync(projectSkillsDir)
+        ? projectSkillsDir
+        : userSkillsDir;
 
     if (!fs.existsSync(skillsDir)) {
       return NextResponse.json({ skills: [], count: 0 });
