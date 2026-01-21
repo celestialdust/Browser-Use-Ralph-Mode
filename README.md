@@ -18,6 +18,196 @@ Browser Use is a full-stack browser automation agent that can:
 - **Request approval** for sensitive actions
 - **Isolate sessions** per conversation thread
 
+## Features
+
+### DeepAgents Integration
+- **Planning & Decomposition**: Built-in `write_todos` tool with parallel vs sequential task identification
+- **File System Tools**: Manage large context with filesystem
+- **Parallel Subagents**: Spawn multiple subagents concurrently for independent tasks
+- **File-Based Results**: Subagents write results to files and return paths to avoid context bloat
+- **Long-term Memory**: Persistent state across conversations
+
+### Skills System
+- **Document Skills**: PDF, PPTX, DOCX manipulation
+- **Browser Skills**: Automated browser interactions
+- **Skill Creator**: Guide for building custom skills
+- **Settings Integration**: View and manage skills in UI
+
+### Memory Management
+- **AGENTS.md**: Store learned patterns with enforced structure
+- **USER_PREFERENCES.md**: Store user preferences with standardized sections
+- **Diary**: Record task completions and learnings
+- **Skills**: Create reusable workflows
+
+### Human-in-the-Loop
+- **Guidance Requests**: Agent can ask for help when stuck
+- **Credential Requests**: Secure credential input form in UI
+- **Confirmation Dialogs**: Approve/reject risky actions
+- **Subagent Support**: Interrupts from subagents surface to UI
+
+### Bash Execution
+- **Script Execution**: Run Python/Node scripts
+- **Package Installation**: pip/npm install commands
+- **Security Tiers**: Auto-approve safe, require approval for others, block dangerous
+- **Unified Root**: All paths resolve relative to `.browser-agent/`
+
+### Ralph Mode
+- **Iterative Refinement**: Agent retries with improvements
+- **Self-Reflection**: Reviews mistakes and adapts approach
+- **Persistent Memory**: Uses filesystem between iterations
+- **Configurable Iterations**: Set max attempts per task
+
+### Browser Automation
+- **Full Browser Control**: Navigate, click, fill, type, screenshot
+- **Element Refs**: Clean `@e1` syntax for interactions
+- **Session Isolation**: Each thread gets its own browser
+- **Live Streaming**: WebSocket viewport streaming
+
+### Claude-Style UI
+- **Waterfall Thought Process**: Hierarchical, nested display of reasoning
+- **3-Panel Layout**: Resizable threads, chat, and browser panels
+- **Persistent Browser Preview**: Right-side panel with live streaming
+- **Clean Design**: Anthropic-inspired minimal color palette
+- **Smooth Animations**: 200ms transitions
+
+### Selective Approval
+**Auto-approved (read-only)**:
+- `browser_snapshot`, `browser_screenshot`, `browser_get_info`
+- `browser_is_visible`, `browser_is_enabled`
+
+**Require approval (actions)**:
+- `browser_navigate`, `browser_click`, `browser_fill`
+- `browser_type`, `browser_press_key`, `browser_eval`
+
+## Quick Start
+
+### Prerequisites
+
+- **Python 3.11+** with `uv` or `pip`
+- **Node.js 18+** with `yarn` or `npm`
+- **Azure OpenAI** API access with GPT-4/5 deployment
+- **agent-browser**: `npm install -g agent-browser`
+
+### 1. Clone Repository
+
+```bash
+git clone <repository-url>
+cd Browser-Use
+```
+
+### 2. Backend Setup
+
+```bash
+cd browser-use-agent
+
+# Create virtual environment
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+uv pip install -e .
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your Azure OpenAI credentials
+```
+
+**`.env` configuration**:
+```env
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
+AZURE_OPENAI_API_KEY=your-api-key-here
+OPENAI_API_VERSION=2025-01-01-preview
+DEPLOYMENT_NAME=your-gpt-deployment-name
+TEMPERATURE=1.0
+```
+
+### 3. Frontend Setup
+
+```bash
+cd ../deep-agents-ui
+
+# Configure environment variables (recommended)
+cp .env.local.example .env.local
+# Edit .env.local with your settings
+
+# Install dependencies
+yarn install
+
+# Start development server
+yarn dev
+```
+
+### 4. Start Backend
+
+In a separate terminal:
+
+```bash
+cd browser-use-agent
+source .venv/bin/activate
+langgraph dev --port 2024
+```
+
+### 5. Open UI
+
+Navigate to http://localhost:3000 and start chatting!
+
+## Configuration
+
+### Backend Configuration
+
+**Environment Variables** (`browser-use-agent/.env`):
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | *Required* |
+| `AZURE_OPENAI_API_KEY` | API key | *Required* |
+| `OPENAI_API_VERSION` | API version | `2025-01-01-preview` |
+| `DEPLOYMENT_NAME` | Model deployment name | `gsds-gpt-5` |
+| `TEMPERATURE` | Model temperature | `1.0` |
+| `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
+
+### Frontend Configuration
+
+**Environment Variables** (`.env.local`):
+```env
+NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:2024
+NEXT_PUBLIC_ASSISTANT_ID=browser-agent
+NEXT_PUBLIC_RALPH_MODE_ENABLED=false
+NEXT_PUBLIC_RALPH_MAX_ITERATIONS=5
+NEXT_PUBLIC_BROWSER_STREAM_PORT=9223
+```
+
+## Usage Examples
+
+### Web UI Chat
+
+**Simple Navigation**:
+```
+Navigate to example.com and tell me the main heading
+```
+
+**Form Interaction**:
+```
+Go to https://httpbin.org/forms/post, fill in the customer name
+as "John Doe", fill in the telephone as "555-1234", and submit the form
+```
+
+**Research Task (Ralph Mode)**:
+```
+Research the latest features in Next.js 15 and create a summary
+with the top 3 most important improvements
+```
+
+### CLI Usage
+
+```bash
+# Standard mode
+python agent.py --task "Navigate to google.com and search for 'LangChain'"
+
+# Ralph Mode (iterative)
+python agent.py --ralph --task "Research browser automation tools" --iterations 5
+```
+
 ## System Architecture
 
 ### High-Level Overview
@@ -429,196 +619,6 @@ Browser-Use/
 ├── agent.md                  # Technical reference
 ├── CLAUDE.md                 # AI assistant instructions
 └── README.md                 # This file
-```
-
-## Features
-
-### DeepAgents Integration
-- **Planning & Decomposition**: Built-in `write_todos` tool with parallel vs sequential task identification
-- **File System Tools**: Manage large context with filesystem
-- **Parallel Subagents**: Spawn multiple subagents concurrently for independent tasks
-- **File-Based Results**: Subagents write results to files and return paths to avoid context bloat
-- **Long-term Memory**: Persistent state across conversations
-
-### Skills System
-- **Document Skills**: PDF, PPTX, DOCX manipulation
-- **Browser Skills**: Automated browser interactions
-- **Skill Creator**: Guide for building custom skills
-- **Settings Integration**: View and manage skills in UI
-
-### Memory Management
-- **AGENTS.md**: Store learned patterns with enforced structure
-- **USER_PREFERENCES.md**: Store user preferences with standardized sections
-- **Diary**: Record task completions and learnings
-- **Skills**: Create reusable workflows
-
-### Human-in-the-Loop
-- **Guidance Requests**: Agent can ask for help when stuck
-- **Credential Requests**: Secure credential input form in UI
-- **Confirmation Dialogs**: Approve/reject risky actions
-- **Subagent Support**: Interrupts from subagents surface to UI
-
-### Bash Execution
-- **Script Execution**: Run Python/Node scripts
-- **Package Installation**: pip/npm install commands
-- **Security Tiers**: Auto-approve safe, require approval for others, block dangerous
-- **Unified Root**: All paths resolve relative to `.browser-agent/`
-
-### Ralph Mode
-- **Iterative Refinement**: Agent retries with improvements
-- **Self-Reflection**: Reviews mistakes and adapts approach
-- **Persistent Memory**: Uses filesystem between iterations
-- **Configurable Iterations**: Set max attempts per task
-
-### Browser Automation
-- **Full Browser Control**: Navigate, click, fill, type, screenshot
-- **Element Refs**: Clean `@e1` syntax for interactions
-- **Session Isolation**: Each thread gets its own browser
-- **Live Streaming**: WebSocket viewport streaming
-
-### Claude-Style UI
-- **Waterfall Thought Process**: Hierarchical, nested display of reasoning
-- **3-Panel Layout**: Resizable threads, chat, and browser panels
-- **Persistent Browser Preview**: Right-side panel with live streaming
-- **Clean Design**: Anthropic-inspired minimal color palette
-- **Smooth Animations**: 200ms transitions
-
-### Selective Approval
-**Auto-approved (read-only)**:
-- `browser_snapshot`, `browser_screenshot`, `browser_get_info`
-- `browser_is_visible`, `browser_is_enabled`
-
-**Require approval (actions)**:
-- `browser_navigate`, `browser_click`, `browser_fill`
-- `browser_type`, `browser_press_key`, `browser_eval`
-
-## Quick Start
-
-### Prerequisites
-
-- **Python 3.11+** with `uv` or `pip`
-- **Node.js 18+** with `yarn` or `npm`
-- **Azure OpenAI** API access with GPT-4/5 deployment
-- **agent-browser**: `npm install -g agent-browser`
-
-### 1. Clone Repository
-
-```bash
-git clone <repository-url>
-cd Browser-Use
-```
-
-### 2. Backend Setup
-
-```bash
-cd browser-use-agent
-
-# Create virtual environment
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-uv pip install -e .
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your Azure OpenAI credentials
-```
-
-**`.env` configuration**:
-```env
-AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
-AZURE_OPENAI_API_KEY=your-api-key-here
-OPENAI_API_VERSION=2025-01-01-preview
-DEPLOYMENT_NAME=your-gpt-deployment-name
-TEMPERATURE=1.0
-```
-
-### 3. Frontend Setup
-
-```bash
-cd ../deep-agents-ui
-
-# Configure environment variables (recommended)
-cp .env.local.example .env.local
-# Edit .env.local with your settings
-
-# Install dependencies
-yarn install
-
-# Start development server
-yarn dev
-```
-
-### 4. Start Backend
-
-In a separate terminal:
-
-```bash
-cd browser-use-agent
-source .venv/bin/activate
-langgraph dev --port 2024
-```
-
-### 5. Open UI
-
-Navigate to http://localhost:3000 and start chatting!
-
-## Configuration
-
-### Backend Configuration
-
-**Environment Variables** (`browser-use-agent/.env`):
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | *Required* |
-| `AZURE_OPENAI_API_KEY` | API key | *Required* |
-| `OPENAI_API_VERSION` | API version | `2025-01-01-preview` |
-| `DEPLOYMENT_NAME` | Model deployment name | `gsds-gpt-5` |
-| `TEMPERATURE` | Model temperature | `1.0` |
-| `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
-
-### Frontend Configuration
-
-**Environment Variables** (`.env.local`):
-```env
-NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:2024
-NEXT_PUBLIC_ASSISTANT_ID=browser-agent
-NEXT_PUBLIC_RALPH_MODE_ENABLED=false
-NEXT_PUBLIC_RALPH_MAX_ITERATIONS=5
-NEXT_PUBLIC_BROWSER_STREAM_PORT=9223
-```
-
-## Usage Examples
-
-### Web UI Chat
-
-**Simple Navigation**:
-```
-Navigate to example.com and tell me the main heading
-```
-
-**Form Interaction**:
-```
-Go to https://httpbin.org/forms/post, fill in the customer name
-as "John Doe", fill in the telephone as "555-1234", and submit the form
-```
-
-**Research Task (Ralph Mode)**:
-```
-Research the latest features in Next.js 15 and create a summary
-with the top 3 most important improvements
-```
-
-### CLI Usage
-
-```bash
-# Standard mode
-python agent.py --task "Navigate to google.com and search for 'LangChain'"
-
-# Ralph Mode (iterative)
-python agent.py --ralph --task "Research browser automation tools" --iterations 5
 ```
 
 ## Documentation
