@@ -205,9 +205,14 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
                       Result
                     </h4>
                     <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words rounded-sm border border-border bg-muted/40 p-2 font-mono text-xs leading-7 text-foreground">
-                      {typeof result === "string"
-                        ? result
-                        : JSON.stringify(result, null, 2)}
+                      {(() => {
+                        const displayResult = typeof result === "string"
+                          ? result
+                          : JSON.stringify(result, null, 2);
+                        return displayResult.length > 300
+                          ? displayResult.slice(0, 300) + "..."
+                          : displayResult;
+                      })()}
                     </pre>
                   </div>
                 )}
