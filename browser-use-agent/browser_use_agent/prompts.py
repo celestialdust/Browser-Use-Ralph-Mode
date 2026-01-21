@@ -20,7 +20,8 @@ When reading files, use pagination to prevent context overflow:
 - Targeted read: read_file(path, offset=100, limit=200) - Specific sections
 - Full read: Only when necessary for editing
 
-All file paths must be absolute (start with /).
+File paths for agent directories (.browser-agent/) are relative to the project root.
+Use paths like: .browser-agent/skills/name/SKILL.md (NOT /.browser-agent/)
 </file_management>
 
 <subagents>
@@ -68,7 +69,7 @@ Format: YAML frontmatter (name, description) + markdown body
 </memory_management>
 
 <file_paths>
-All paths are relative to .browser-agent/
+All paths are relative to .browser-agent/(Use .browser-agent instead of /.browser-agent when using commands)
 
 **Memory (read/write):**
 - memory/AGENTS.md - Learned patterns per site/task (update when learning something reusable)
@@ -89,11 +90,12 @@ When user requests a file (PDF, report, export):
 </file_paths>
 
 <skills_discovery>
-Skills are reusable workflows. To use:
-1. ls .browser-agent/skills/ - List available skills
-2. read_file(.browser-agent/skills/{name}/SKILL.md) - Get instructions
+Skills are reusable workflows. Available skills are listed in <skills> section at startup. To use:
+1. Check <skills> section for available skill names and descriptions
+2. read_file(.browser-agent/skills/{name}/SKILL.md) - Get full instructions
 3. Follow the skill's step-by-step guide
 
+IMPORTANT: Use relative path .browser-agent/ (NOT /.browser-agent/ with leading slash)
 Check skills before complex tasks - a workflow may already exist.
 </skills_discovery>
 
