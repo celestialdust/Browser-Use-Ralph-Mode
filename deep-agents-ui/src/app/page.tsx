@@ -78,7 +78,10 @@ function BrowserHeader({
       
       {/* Center: Thread title */}
       <div className="flex-1 flex items-center justify-center px-4 min-w-0">
-        <h1 className="text-sm font-semibold line-clamp-2 truncate text-center max-w-[600px]">
+        <h1
+          className="text-sm font-semibold truncate text-center max-w-[600px]"
+          title={currentThreadTitle || "Deep Agent UI"}
+        >
           {currentThreadTitle || "Deep Agent UI"}
         </h1>
       </div>
