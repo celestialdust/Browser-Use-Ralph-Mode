@@ -20,8 +20,10 @@ When reading files, use pagination to prevent context overflow:
 - Targeted read: read_file(path, offset=100, limit=200) - Specific sections
 - Full read: Only when necessary for editing
 
-File paths for agent directories (.browser-agent/) are relative to the project root.
-Use paths like: .browser-agent/skills/name/SKILL.md (NOT /.browser-agent/)
+The filesystem is rooted at .browser-agent/ so use paths relative to it:
+- Use: skills/name/SKILL.md (correct)
+- NOT: .browser-agent/skills/name/SKILL.md (wrong - don't include .browser-agent/ prefix)
+- NOT: /.browser-agent/skills/name/SKILL.md (wrong - no leading slash)
 </file_management>
 
 <subagents>
@@ -69,33 +71,33 @@ Format: YAML frontmatter (name, description) + markdown body
 </memory_management>
 
 <file_paths>
-All paths are relative to .browser-agent/(Use .browser-agent instead of /.browser-agent when using commands)
+Filesystem is rooted at .browser-agent/ - all paths below are relative to this root.
 
 **Memory (read/write):**
-- memory/AGENTS.md - Learned patterns per site/task (update when learning something reusable)
-- memory/USER_PREFERENCES.md - User preferences (update when user mentions preferences)
-- memory/diary/ - Session diaries (auto-created, one per session)
+- memory/AGENTS.md - Learned patterns per site/task
+- memory/USER_PREFERENCES.md - User preferences
+- memory/diary/ - Session diaries
 
 **Skills (read-only):**
-- skills/{name}/SKILL.md - Reusable workflows (ls skills/ to discover)
+- skills/{name}/SKILL.md - Reusable workflows (use: ls skills/)
 
 **Artifacts (write):**
-- artifacts/screenshots/ - Browser screenshots (browser_screenshot saves here)
+- artifacts/screenshots/ - Browser screenshots
 - artifacts/file_outputs/ - User-requested files (PDFs, exports, reports)
-- artifacts/tool_outputs/ - Large tool outputs (auto-saved when >1000 chars)
+- artifacts/tool_outputs/ - Large tool outputs
 
-When user requests a file (PDF, report, export):
--> Save to artifacts/file_outputs/{descriptive_name}.{ext}
--> Return the full path to user
+Example commands:
+- ls skills/
+- read_file(skills/agent-browser/SKILL.md)
+- write_file(artifacts/file_outputs/report.pdf, content)
 </file_paths>
 
 <skills_discovery>
 Skills are reusable workflows. Available skills are listed in <skills> section at startup. To use:
 1. Check <skills> section for available skill names and descriptions
-2. read_file(.browser-agent/skills/{name}/SKILL.md) - Get full instructions
+2. read_file(skills/{name}/SKILL.md) - Get full instructions
 3. Follow the skill's step-by-step guide
 
-IMPORTANT: Use relative path .browser-agent/ (NOT /.browser-agent/ with leading slash)
 Check skills before complex tasks - a workflow may already exist.
 </skills_discovery>
 
@@ -197,9 +199,9 @@ Follow this workflow for every task:
 
 **Phase 3: Execute**
 7. Check filesystem for existing context/skills:
-   - ls .browser-agent/ to see available resources
-   - Read AGENTS.md for learned patterns
-   - Check skills/ for relevant workflows
+   - ls to see available directories (memory/, skills/, artifacts/)
+   - read_file(memory/AGENTS.md) for learned patterns
+   - ls skills/ to check for relevant workflows
 8. Start browser session: browser_navigate(url)
 9. Take snapshot: browser_snapshot() to get @refs
 10. Execute actions using @refs from snapshot
