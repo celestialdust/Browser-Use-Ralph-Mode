@@ -67,6 +67,45 @@ Format: YAML frontmatter (name, description) + markdown body
 5. Keep entries concise - focus on actionable patterns
 </memory_management>
 
+<file_paths>
+All paths are relative to .browser-agent/
+
+**Memory (read/write):**
+- memory/AGENTS.md - Learned patterns per site/task (update when learning something reusable)
+- memory/USER_PREFERENCES.md - User preferences (update when user mentions preferences)
+- memory/diary/ - Session diaries (auto-created, one per session)
+
+**Skills (read-only):**
+- skills/{name}/SKILL.md - Reusable workflows (ls skills/ to discover)
+
+**Artifacts (write):**
+- artifacts/screenshots/ - Browser screenshots (browser_screenshot saves here)
+- artifacts/file_outputs/ - User-requested files (PDFs, exports, reports)
+- artifacts/tool_outputs/ - Large tool outputs (auto-saved when >1000 chars)
+
+When user requests a file (PDF, report, export):
+-> Save to artifacts/file_outputs/{descriptive_name}.{ext}
+-> Return the full path to user
+</file_paths>
+
+<skills_discovery>
+Skills are reusable workflows. To use:
+1. ls .browser-agent/skills/ - List available skills
+2. read_file(.browser-agent/skills/{name}/SKILL.md) - Get instructions
+3. Follow the skill's step-by-step guide
+
+Check skills before complex tasks - a workflow may already exist.
+</skills_discovery>
+
+<parallel_execution>
+Use task tool to spawn subagents for parallel work when:
+- Multiple independent tasks (e.g., "research 3 companies")
+- Repetitive operations (e.g., "process 5 files")
+- Tasks with no dependencies between them
+
+Do NOT parallelize when results depend on each other.
+</parallel_execution>
+
 <browser_tools>
 <approach>
 DOM-first with visual fallback:
@@ -110,6 +149,36 @@ Human-in-the-loop (3):
 4. ALWAYS close browser when task is complete
 </critical_patterns>
 </browser_tools>
+
+<bash_execution>
+Use bash_execute tool to run code and scripts:
+- Python scripts: bash_execute("python script.py", thread_id)
+- Node scripts: bash_execute("node script.js", thread_id)
+- Install packages: bash_execute("pip install package", thread_id)
+
+**Auto-approved (no human confirmation needed):**
+- python/python3 script execution
+- node script execution
+- pip/npm install
+- Read-only: cat, ls, head, tail, pwd, wc
+- mkdir
+
+**Requires approval:**
+- File modifications (rm, mv, cp)
+- Network commands (curl, wget)
+- Any command not in the auto-approved list
+
+**Blocked (will not run):**
+- sudo commands
+- Destructive operations (rm -rf /, dd)
+- Piped downloads (curl | bash)
+
+**Workflow for generating files (PDF, reports):**
+1. Write script to artifacts/file_outputs/generate_{name}.py
+2. Run with bash_execute("python artifacts/file_outputs/generate_{name}.py", thread_id)
+3. Script should save output to artifacts/file_outputs/
+4. Return output file path to user
+</bash_execution>
 
 <workflow>
 Follow this workflow for every task:

@@ -27,6 +27,9 @@ Browser-Use/
 │   │   ├── browser_agent.py   # Main agent + Ralph Mode
 │   │   ├── configuration.py   # Azure OpenAI config
 │   │   ├── tools.py          # Browser automation tools
+│   │   ├── bash_tool.py      # Bash execution with security tiers
+│   │   ├── human_loop.py     # Human-in-the-loop tools
+│   │   ├── subagent_interrupt.py  # Subagent interrupt forwarding
 │   │   ├── state.py          # State definitions
 │   │   ├── prompts.py        # System prompts + memory management
 │   │   ├── skills/           # Skill loader
@@ -45,6 +48,7 @@ Browser-Use/
 │   │   │   ├── ThoughtProcess.tsx       # Waterfall display
 │   │   │   ├── ReasoningDisplay.tsx     # OpenAI reasoning summary
 │   │   │   ├── ConfigDialog.tsx         # Settings + skills display
+│   │   │   ├── HumanLoopInterrupt.tsx   # Guidance/credentials/confirmation UI
 │   │   │   └── BrowserCommandApproval.tsx
 │   │   ├── hooks/           # React hooks
 │   │   ├── providers/       # Context providers
@@ -60,13 +64,27 @@ Browser-Use/
 │   │   ├── pptx.md          # PowerPoint creation/editing
 │   │   └── docx.md          # Word document handling
 │   ├── memory/              # Agent memory files
+│   │   ├── AGENTS.md        # Learned patterns (standardized)
+│   │   ├── USER_PREFERENCES.md  # User preferences
+│   │   └── diary/           # Session diaries
 │   └── artifacts/           # Generated files
+│       ├── screenshots/     # Browser screenshots
+│       ├── file_outputs/    # User-requested files (PDFs, exports)
+│       └── tool_outputs/    # Large tool outputs
 │
 ├── agent.md                  # 📖 Technical reference
 └── README.md                 # This file
 ```
 
 ## 🆕 Recent Updates
+
+### v4.5 - Human-in-the-Loop & Bash Execution (2026-01-20)
+- **Human Loop UI**: New `HumanLoopInterrupt` component surfaces agent requests for guidance, credentials, and confirmations directly in the UI
+- **Bash Tool**: Execute scripts and commands with 3-tier security (auto-approve safe commands, require approval for others, block dangerous)
+- **Browser Session Sync**: Frontend now stays in sync when backend closes browser sessions via timeout
+- **Subagent Communication**: Interrupts from subagents now bubble up to the frontend for human response
+- **Memory Structure Overhaul**: Standardized `AGENTS.md` format, new `USER_PREFERENCES.md`, fixed paths in prompts
+- **Parallel Execution Guidance**: System prompt now teaches agent when to use task tool for parallel work
 
 ### v4.4 - Credential Handling & CDP Support
 - **Smart Credential Handling**: Agent now uses credentials provided directly in chat instead of repeatedly prompting via `request_credentials` tool
@@ -88,9 +106,23 @@ Browser-Use/
 - **Settings Integration**: View and manage skills in UI
 
 ### Memory Management
-- **AGENTS.md**: Store learned website patterns
+- **AGENTS.md**: Store learned website patterns (standardized format)
+- **USER_PREFERENCES.md**: Store user preferences
 - **Diary**: Record task completions and learnings
 - **Skills**: Create reusable workflows
+- **Fixed Paths**: Agent knows exact paths for all memory/artifacts
+
+### Human-in-the-Loop
+- **Guidance Requests**: Agent can ask for help when stuck
+- **Credential Requests**: Secure credential input form in UI
+- **Confirmation Dialogs**: Approve/reject risky actions
+- **Subagent Support**: Interrupts from subagents surface to UI
+
+### Bash Execution
+- **Script Execution**: Run Python/Node scripts
+- **Package Installation**: pip/npm install commands
+- **Security Tiers**: Auto-approve safe, require approval for others, block dangerous
+- **File Generation**: Create PDFs, reports, exports via scripts
 
 ### Ralph Mode
 - **Iterative Refinement**: Agent retries with improvements

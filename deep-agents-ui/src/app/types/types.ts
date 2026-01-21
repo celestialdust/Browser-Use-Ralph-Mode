@@ -83,3 +83,26 @@ export interface ThoughtProcess {
   isComplete: boolean;
   steps?: ThoughtStep[]; // For waterfall/nested structure
 }
+
+export interface SubagentInterrupt {
+  id: string;
+  subagent_id: string;
+  subagent_name: string;
+  interrupt_type: "guidance" | "credentials" | "confirmation";
+  interrupt_data: {
+    type: string;
+    question?: string;
+    context?: string;
+    attempted_approaches?: string;
+    service?: string;
+    credential_types?: string;
+    reason?: string;
+    action?: string;
+    risks?: string;
+    alternatives?: string;
+    [key: string]: any;
+  };
+  response?: any;
+  created_at: number;
+  status: "pending" | "responded" | "resumed";
+}

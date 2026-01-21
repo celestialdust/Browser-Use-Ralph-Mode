@@ -46,6 +46,9 @@ class Config:
     # Start Chrome with: google-chrome --remote-debugging-port=9222
     USE_CDP: bool = os.getenv("USE_CDP", "false").lower() == "true"
     CDP_PORT: int = int(os.getenv("CDP_PORT", "9222"))
+
+    # LangGraph server settings (for background cleanup thread to update state)
+    LANGGRAPH_PORT: int = int(os.getenv("LANGGRAPH_PORT", "2024"))
     
     # Ralph Mode settings
     DEFAULT_MAX_ITERATIONS: int = 5

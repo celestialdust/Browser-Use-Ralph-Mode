@@ -15,8 +15,49 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from langchain.tools import tool
+from langgraph_sdk import get_client
 from browser_use_agent.utils import stream_manager
 from browser_use_agent.configuration import Config
+
+# LangGraph SDK client for updating thread state (lazy initialized)
+_langgraph_client = None
+
+
+def _get_langgraph_client():
+    """Get or create LangGraph SDK client for state updates."""
+    global _langgraph_client
+    if _langgraph_client is None:
+        _langgraph_client = get_client(url=f"http://localhost:{Config.LANGGRAPH_PORT}")
+    return _langgraph_client
+
+
+def _update_thread_browser_session(thread_id: str, is_active: bool):
+    """Update browser_session in LangGraph thread state.
+
+    Called from cleanup thread when sessions are closed due to inactivity.
+    This ensures the frontend receives the updated session state.
+
+    Args:
+        thread_id: Thread identifier
+        is_active: Whether the session is active
+    """
+    try:
+        client = _get_langgraph_client()
+        stream_url = stream_manager.get_stream_url(thread_id) if is_active else None
+        client.threads.update_state(
+            thread_id,
+            values={
+                "browser_session": {
+                    "sessionId": thread_id,
+                    "streamUrl": stream_url,
+                    "isActive": is_active
+                }
+            },
+            as_node="tools"
+        )
+        print(f"[Browser Timeout] Updated LangGraph state for {thread_id}")
+    except Exception as e:
+        print(f"[Browser Timeout] Failed to update LangGraph state: {e}")
 
 # Maximum output size before saving to filesystem (in characters)
 MAX_OUTPUT_SIZE = 1000
@@ -301,6 +342,8 @@ def _cleanup_inactive_sessions():
                 result = _run_browser_command(thread_id, ["close"])
                 stream_manager.release_port(thread_id)
                 _update_browser_session(thread_id, is_active=False, update_last_activity=False)
+                # Update LangGraph thread state so frontend receives the change
+                _update_thread_browser_session(thread_id, is_active=False)
 
                 if result["success"]:
                     print(f"[Browser Timeout] Session {thread_id} closed successfully")
@@ -845,6 +888,9 @@ from browser_use_agent.human_loop import HUMAN_LOOP_TOOLS
 # Import reflection tools
 from browser_use_agent.reflection import REFLECTION_TOOLS
 
+# Import bash execution tools
+from browser_use_agent.bash_tool import BASH_TOOLS
+
 # Export all tools
 BROWSER_TOOLS = [
     # Core commands
@@ -871,4 +917,6 @@ BROWSER_TOOLS = [
     *HUMAN_LOOP_TOOLS,
     # Reflection tools
     *REFLECTION_TOOLS,
+    # Bash execution tools
+    *BASH_TOOLS,
 ]

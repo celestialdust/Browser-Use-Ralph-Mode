@@ -1,0 +1,145 @@
+"""Bash execution tool with mixed security model.
+
+Safe commands run automatically, others require human approval.
+"""
+
+import re
+import subprocess
+from typing import Optional
+from langchain_core.tools import tool
+from langgraph.types import interrupt
+
+# Auto-approved command patterns (regex)
+AUTO_APPROVED_PATTERNS = [
+    r"^python\s+[\w\-_./]+\.py(\s+.*)?$",   # python script.py [args]
+    r"^python3\s+[\w\-_./]+\.py(\s+.*)?$",  # python3 script.py [args]
+    r"^python\s+--version$",                 # python --version
+    r"^python3\s+--version$",                # python3 --version
+    r"^node\s+[\w\-_./]+\.js(\s+.*)?$",     # node script.js [args]
+    r"^pip\s+install\s+[\w\-_\[\]]+",       # pip install package[extras]
+    r"^pip3\s+install\s+[\w\-_\[\]]+",      # pip3 install package[extras]
+    r"^npm\s+install(\s+[\w\-_@/]+)?",      # npm install [package]
+    r"^cat\s+[\w\-_./]+",                    # cat file
+    r"^ls(\s+[\w\-_./-]*)?$",               # ls [dir]
+    r"^head(\s+-n\s+\d+)?\s+[\w\-_./]+",    # head [-n N] file
+    r"^tail(\s+-n\s+\d+)?\s+[\w\-_./]+",    # tail [-n N] file
+    r"^pwd$",                                # pwd
+    r"^echo\s+",                             # echo text
+    r"^mkdir\s+-?p?\s+[\w\-_./]+",          # mkdir dir
+    r"^wc(\s+-[lwc]+)?\s+[\w\-_./]+",       # wc [-lwc] file
+]
+
+# Always blocked patterns (regex)
+BLOCKED_PATTERNS = [
+    r"sudo",                           # No sudo
+    r"rm\s+-rf\s+/",                  # No rm -rf /
+    r"rm\s+-rf\s+~",                  # No rm -rf ~
+    r">\s*/dev/",                     # No writing to /dev/
+    r"mkfs",                          # No filesystem creation
+    r"dd\s+if=",                      # No raw disk access
+    r":\(\)\{",                       # No fork bombs
+    r"chmod\s+777",                   # No 777 permissions
+    r"curl.*\|\s*bash",              # No curl | bash
+    r"wget.*\|\s*bash",              # No wget | bash
+]
+
+
+def is_command_auto_approved(command: str) -> bool:
+    """Check if command matches auto-approved patterns."""
+    command = command.strip()
+    return any(re.match(pattern, command) for pattern in AUTO_APPROVED_PATTERNS)
+
+
+def is_command_blocked(command: str) -> bool:
+    """Check if command matches blocked patterns."""
+    command = command.strip()
+    return any(re.search(pattern, command) for pattern in BLOCKED_PATTERNS)
+
+
+@tool
+def bash_execute(
+    command: str,
+    thread_id: str,
+    working_dir: Optional[str] = None,
+    timeout: int = 300
+) -> str:
+    """Execute a bash command with safety controls.
+
+    Safe commands (python/node scripts, pip/npm install, cat/ls) run automatically.
+    Other commands require human approval via interrupt.
+    Dangerous commands are blocked entirely.
+
+    Args:
+        command: The bash command to execute
+        thread_id: Thread identifier for session context
+        working_dir: Optional working directory (defaults to current directory)
+        timeout: Command timeout in seconds (default: 300 = 5 minutes)
+
+    Returns:
+        Command output (stdout + stderr) or error message
+
+    Examples:
+        # Run a Python script (auto-approved)
+        bash_execute("python generate_report.py", thread_id)
+
+        # Install a package (auto-approved)
+        bash_execute("pip install pandas", thread_id)
+
+        # Run curl (requires approval)
+        bash_execute("curl https://api.example.com/data", thread_id)
+    """
+    command = command.strip()
+
+    # Check if command is blocked
+    if is_command_blocked(command):
+        return f"[BLOCKED] Command blocked for safety: {command}"
+
+    # Check if command needs approval
+    if not is_command_auto_approved(command):
+        print(f"[Bash] Requesting approval for: {command}")
+
+        # Use interrupt to request human approval
+        response = interrupt({
+            "type": "bash_approval",
+            "thread_id": thread_id,
+            "command": command,
+            "question": f"Allow this command to run?",
+        })
+
+        if response != "approved":
+            return f"[REJECTED] Command rejected by user: {command}"
+
+        print(f"[Bash] Command approved: {command}")
+
+    # Execute command
+    print(f"[Bash] Executing: {command}")
+
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=working_dir,
+        )
+
+        output = ""
+        if result.stdout:
+            output += result.stdout
+        if result.stderr:
+            output += ("\n" if output else "") + result.stderr
+
+        if result.returncode != 0:
+            output = f"[Exit code: {result.returncode}]\n{output}"
+
+        return output if output else "(command completed with no output)"
+
+    except subprocess.TimeoutExpired:
+        return f"[TIMEOUT] Command timed out after {timeout} seconds: {command}"
+    except Exception as e:
+        return f"[ERROR] Failed to execute command: {str(e)}"
+
+
+# Export for tools list
+BASH_TOOLS = [bash_execute]

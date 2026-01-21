@@ -18,6 +18,17 @@ dependencies = [
     "websockets>=12.0",
     "langsmith-fetch>=0.1.0",
     "pyyaml>=6.0",
+    # PDF processing
+    "pypdf>=4.0.0",
+    "pdfplumber>=0.10.0",
+    "reportlab>=4.0.0",
+    "pdf2image>=1.16.0",
+    "pytesseract>=0.3.10",
+    "pandas>=2.0.0",
+    # DOCX processing
+    "defusedxml>=0.7.0",
+    # PPTX processing
+    "markitdown[pptx]>=0.1.0",
 ]
 
 [build-system]

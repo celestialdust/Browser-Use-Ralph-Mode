@@ -22,11 +22,13 @@ import {
 import { ChatMessage } from "@/app/components/ChatMessage";
 import { BrowserCommandApproval } from "@/app/components/BrowserCommandApproval";
 import { ErrorBanner } from "@/app/components/ErrorBanner";
+import { HumanLoopInterrupt } from "@/app/components/HumanLoopInterrupt";
 import type {
   TodoItem,
   ToolCall,
   ActionRequest,
   ReviewConfig,
+  SubagentInterrupt,
 } from "@/app/types/types";
 import { Assistant, Message } from "@langchain/langgraph-sdk";
 import { extractStringFromMessageContent } from "@/app/utils/utils";
@@ -95,6 +97,8 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     browserSession,
     approvalQueue,
     currentThought,
+    pendingSubagentInterrupts,
+    respondToSubagentInterrupt,
     chatError,
     clearError,
     retryLastMessage,
@@ -340,6 +344,20 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     );
   }, [interrupt]);
 
+  const humanLoopInterrupt = useMemo(() => {
+    const value = interrupt?.value as any;
+    if (!value?.type) return null;
+    if (['guidance', 'credentials', 'confirmation', 'bash_approval'].includes(value.type)) {
+      return value;
+    }
+    return null;
+  }, [interrupt]);
+
+  // Detect pending subagent interrupt
+  const pendingSubagentInterrupt = useMemo(() => {
+    return pendingSubagentInterrupts.find((i: SubagentInterrupt) => i.status === "pending") || null;
+  }, [pendingSubagentInterrupts]);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div
@@ -407,6 +425,32 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
               details={chatError.details}
               onRetry={chatError.retryable ? retryLastMessage : undefined}
               onDismiss={clearError}
+            />
+          </div>
+        )}
+
+        {/* Human Loop Interrupt */}
+        {humanLoopInterrupt && (
+          <div className="mx-auto w-[calc(100%-32px)] max-w-[1024px] mb-4">
+            <HumanLoopInterrupt
+              type={humanLoopInterrupt.type}
+              data={humanLoopInterrupt}
+              onRespond={resumeInterrupt}
+            />
+          </div>
+        )}
+
+        {/* Subagent Interrupt */}
+        {pendingSubagentInterrupt && (
+          <div className="mx-auto w-[calc(100%-32px)] max-w-[1024px] mb-4">
+            <HumanLoopInterrupt
+              type={pendingSubagentInterrupt.interrupt_type}
+              data={pendingSubagentInterrupt.interrupt_data}
+              subagentName={pendingSubagentInterrupt.subagent_name}
+              onRespond={(response) => respondToSubagentInterrupt(
+                pendingSubagentInterrupt.id,
+                response
+              )}
             />
           </div>
         )}

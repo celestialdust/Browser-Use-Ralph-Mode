@@ -9,7 +9,7 @@ import {
 } from "@langchain/langgraph-sdk";
 import { v4 as uuidv4 } from "uuid";
 import type { UseStreamThread } from "@langchain/langgraph-sdk/react";
-import type { TodoItem, BrowserSession, BrowserCommand, ThoughtProcess } from "@/app/types/types";
+import type { TodoItem, BrowserSession, BrowserCommand, ThoughtProcess, SubagentInterrupt } from "@/app/types/types";
 import { useClient } from "@/providers/ClientProvider";
 import { useQueryState } from "nuqs";
 import { RECURSION_LIMIT } from "@/lib/config";
@@ -100,6 +100,7 @@ export type StateType = {
   browser_session?: BrowserSession | null;
   approval_queue?: BrowserCommand[];
   current_thought?: ThoughtProcess | null;
+  pending_subagent_interrupts?: SubagentInterrupt[];
 };
 
 export function useChat({
@@ -368,15 +369,72 @@ export function useChat({
     stream.stop();
   }, [stream]);
 
+  // Respond to a subagent interrupt by updating state and continuing the stream
+  const respondToSubagentInterrupt = useCallback(
+    async (interruptId: string, response: any) => {
+      if (!threadId) return;
+
+      // Update state with response
+      const currentInterrupts = stream.values.pending_subagent_interrupts || [];
+      const updatedInterrupts = currentInterrupts.map(
+        (i: SubagentInterrupt) => i.id === interruptId
+          ? { ...i, status: "responded" as const, response }
+          : i
+      );
+
+      await client.threads.updateState(threadId, {
+        values: {
+          pending_subagent_interrupts: updatedInterrupts
+        },
+        asNode: "tools"  // Required: use "tools" node (from create_deep_agent graph structure)
+      });
+
+      // Continue the stream to let parent agent resume subagent
+      continueStream();
+    },
+    [threadId, client, stream.values.pending_subagent_interrupts, continueStream]
+  );
+
+  // Polling interval for detecting session closure when stream is idle
+  const BROWSER_SESSION_POLL_INTERVAL = 30000; // 30 seconds
+
+  // Poll for browser session status when stream is idle but we think browser is active
+  useEffect(() => {
+    // Only poll if we think browser is active but stream is idle
+    if (!browserSession?.isActive || stream.isLoading || !threadId) {
+      return;
+    }
+
+    const pollSessionStatus = async () => {
+      try {
+        const state = await client.threads.getState(threadId);
+        const backendSession = (state.values as StateType)?.browser_session;
+
+        if (backendSession && !backendSession.isActive && browserSession?.isActive) {
+          console.log("[useChat] Polling detected session closed, syncing state");
+          setBrowserSession(backendSession);
+        }
+      } catch (error) {
+        console.error("[useChat] Failed to poll session status:", error);
+      }
+    };
+
+    const intervalId = setInterval(pollSessionStatus, BROWSER_SESSION_POLL_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [browserSession?.isActive, stream.isLoading, threadId, client]);
+
   // Memoize fallback values to prevent creating new objects on each render
   // which could cause infinite re-renders in dependent components
   const emptyTodos: TodoItem[] = useMemo(() => [], []);
   const emptyFiles: Record<string, string> = useMemo(() => ({}), []);
   const emptyApprovalQueue: BrowserCommand[] = useMemo(() => [], []);
+  const emptySubagentInterrupts: SubagentInterrupt[] = useMemo(() => [], []);
 
   const todos = stream.values.todos ?? emptyTodos;
   const files = stream.values.files ?? emptyFiles;
   const approvalQueue = stream.values.approval_queue ?? emptyApprovalQueue;
+  const pendingSubagentInterrupts = stream.values.pending_subagent_interrupts ?? emptySubagentInterrupts;
   const resolvedBrowserSession = browserSession ?? stream.values.browser_session ?? null;
   const currentThought = stream.values.current_thought ?? null;
 
@@ -389,6 +447,7 @@ export function useChat({
     browserSession: resolvedBrowserSession,
     approvalQueue,
     currentThought,
+    pendingSubagentInterrupts,
     setFiles,
     messages: stream.messages,
     isLoading: stream.isLoading,
@@ -401,6 +460,7 @@ export function useChat({
     stopStream,
     markCurrentThreadAsResolved,
     resumeInterrupt,
+    respondToSubagentInterrupt,
     // Error handling
     chatError,
     clearError,

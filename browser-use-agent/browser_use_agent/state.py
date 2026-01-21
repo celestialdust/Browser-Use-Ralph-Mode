@@ -33,6 +33,18 @@ class ThoughtProcess(TypedDict, total=False):
     isComplete: bool
 
 
+class SubagentInterrupt(TypedDict, total=False):
+    """Pending interrupt from a subagent."""
+    id: str                    # Unique interrupt ID
+    subagent_id: str           # Which subagent is waiting
+    subagent_name: str         # Human-readable name
+    interrupt_type: str        # guidance, credentials, confirmation
+    interrupt_data: Dict       # Full interrupt value
+    response: Any              # Human's response (when responded)
+    created_at: int            # Timestamp
+    status: str                # pending, responded, resumed
+
+
 class AgentState(TypedDict, total=False):
     """State for the browser automation agent."""
     messages: List[BaseMessage]
@@ -42,14 +54,15 @@ class AgentState(TypedDict, total=False):
     approval_queue: List[BrowserCommand]
     current_thought: Optional[ThoughtProcess]
     thread_id: str
+    pending_subagent_interrupts: List[SubagentInterrupt]
 
 
 def create_initial_state(thread_id: str) -> AgentState:
     """Create initial agent state for a thread.
-    
+
     Args:
         thread_id: Unique thread identifier
-        
+
     Returns:
         AgentState: Initial state
     """
@@ -61,4 +74,5 @@ def create_initial_state(thread_id: str) -> AgentState:
         "approval_queue": [],
         "current_thought": None,
         "thread_id": thread_id,
+        "pending_subagent_interrupts": [],
     }
