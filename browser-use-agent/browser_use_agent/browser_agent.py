@@ -18,7 +18,6 @@ def _load_context_files(agent_dir) -> str:
 
     Loads:
     - AGENTS.md as <project_memory>
-    - agent.md as <agent_memory>
     - Skills metadata (names/descriptions only) as <skills>
 
     Args:
@@ -43,19 +42,6 @@ def _load_context_files(agent_dir) -> str:
                 print(f"[Agent] Loaded project memory from {agents_md_path}")
         except Exception as e:
             print(f"[Agent] Failed to load AGENTS.md: {e}")
-
-    # Load agent.md (technical reference) - inside .browser-agent/
-    agent_md_path = agent_dir / "agent.md"
-    if agent_md_path.exists():
-        try:
-            content = agent_md_path.read_text()
-            # Truncate if too long (keep first 2000 chars)
-            if len(content) > 2000:
-                content = content[:2000] + "\n\n[...truncated for brevity...]"
-            context_sections.append(f"<agent_memory>\n{content}\n</agent_memory>")
-            print(f"[Agent] Loaded agent memory from {agent_md_path}")
-        except Exception as e:
-            print(f"[Agent] Failed to load agent.md: {e}")
 
     # Load skills metadata (names and descriptions only)
     skills_dir = agent_dir / "skills"
