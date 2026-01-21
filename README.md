@@ -79,9 +79,10 @@ Browser-Use/
 ## ✨ Features
 
 ### DeepAgents Integration
-- **Planning & Decomposition**: Built-in `write_todos` tool
+- **Planning & Decomposition**: Built-in `write_todos` tool with parallel vs sequential task identification
 - **File System Tools**: Manage large context with filesystem
-- **Subagent Spawning**: Delegate tasks to specialized agents
+- **Parallel Subagents**: Spawn multiple subagents concurrently for independent tasks
+- **File-Based Results**: Subagents write results to files and return paths to avoid context bloat
 - **Long-term Memory**: Persistent state across conversations
 
 ### Skills System
@@ -91,8 +92,8 @@ Browser-Use/
 - **Settings Integration**: View and manage skills in UI
 
 ### Memory Management
-- **AGENTS.md**: Store learned website patterns (standardized format)
-- **USER_PREFERENCES.md**: Store user preferences
+- **AGENTS.md**: Store learned patterns with enforced structure (Website Patterns, Task Patterns, Error Recovery sections)
+- **USER_PREFERENCES.md**: Store user preferences with standardized sections (General, Browsing, Communication, Credentials, Workflow Preferences)
 - **Diary**: Record task completions and learnings
 - **Skills**: Create reusable workflows
 - **Fixed Paths**: Agent knows exact paths for all memory/artifacts

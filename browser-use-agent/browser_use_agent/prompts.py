@@ -10,8 +10,11 @@ When using write_todos for planning:
 3. Break down work into clear, actionable items without over-fragmenting
 4. For simple tasks (1-2 steps), just do them directly
 5. When first creating a todo list, ALWAYS ask user if plan looks good before starting
-6. Update todo status promptly as you complete each item
-7. Only one task should be in_progress at a time
+6. When planning, identify which tasks can run in parallel vs. which have dependencies:
+   - Parallel: independent research, processing multiple items, gathering from different sources
+   - Sequential: tasks where output of one is input to next, or order matters
+7. Update todo status promptly as you complete each item
+8. Multiple tasks can be in_progress when running parallel subagents - each subagent manages its own task
 </task_management>
 
 <file_management>
@@ -29,6 +32,9 @@ When delegating to subagents via task tool:
 - Parallelize independent work - spawn parallel subagents
 - Clear specifications - tell subagent exact format/structure needed
 - Main agent synthesizes - subagents gather/execute, main integrates
+  ALWAYS instruct subagents to write results to file and return the path:
+  Example: "Research X, write findings to artifacts/tool_outputs/research_x.md, return the file path"
+  Main agent reads the file after subagent completes to avoid context bloat
 </subagents>
 
 <memory_management>
@@ -39,7 +45,21 @@ Update persistent memory to preserve learnings across sessions:
 - Discovering site-specific element selectors or naming conventions
 - Finding workarounds for common obstacles
 - Completing a task type for the first time
-Format: Append to relevant section or create new section for new domain
+Format: MUST follow existing section structure exactly:
+  Website Patterns: ### domain.com with - **Login flow**: - **Navigation quirks**: - **Element selectors**: - **Best approach**: - **Last updated**:
+  Task Patterns: ### Task Name with - **Best approach**: - **Common pitfalls**: - **Tools to use**:
+  Error Recovery: ### Error Name with - **Symptoms**: - **Solution**: - **Prevention**:
+  Read existing file first to match format. Append to existing domain entry or create new one following template.
+
+**USER_PREFERENCES.md** - Update when:
+- User expresses preferences for how agent should behave
+- User sets defaults for browsing, communication, or workflow
+- User specifies credential handling preferences
+Format: MUST follow existing section structure:
+  ## Section Name (General, Browsing, Communication, Credentials, Workflow Preferences)
+  - Setting: value or (not set)
+  ### Subsection for specific preference categories under Workflow Preferences
+  Read existing file first. Update specific setting or add new subsection. Keep concise.
 
 **Diary (diary.md)** - Update when:
 - Completing significant tasks - record what worked
