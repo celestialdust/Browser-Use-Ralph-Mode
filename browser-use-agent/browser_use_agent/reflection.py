@@ -96,7 +96,7 @@ def reflect_on_session(thread_id: str) -> str:
         return (
             "No diary entries found for this session.\n"
             "To enable reflection, create diary entries during task execution:\n"
-            "write_file(.browser-agent/memory/diary/YYYY-MM-DD-task-name.md, content)"
+            "write_file(memory/diary/YYYY-MM-DD-task-name.md, content)"
         )
 
     # Analyze diary entries (simple pattern extraction)
@@ -156,7 +156,7 @@ def reflect_on_session(thread_id: str) -> str:
             result += f"  Steps: {', '.join(skill.steps)}\n"
 
     result += "\n### Next Steps\n"
-    result += "- Review and add key learnings to .browser-agent/memory/AGENTS.md\n"
+    result += "- Review and add key learnings to memory/AGENTS.md\n"
     result += "- Consider creating skills for repeated patterns\n"
 
     return result

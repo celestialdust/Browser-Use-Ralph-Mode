@@ -13,22 +13,22 @@ from browser_use_agent.storage.config import StorageConfig
 
 
 def _resolve_working_dir(working_dir: Optional[str]) -> Optional[str]:
-    """Resolve working directory path relative to project root.
+    """Resolve working directory path relative to .browser-agent/.
 
     Handles paths like:
-    - /.browser-agent/... -> project_root/.browser-agent/...
-    - .browser-agent/... -> project_root/.browser-agent/...
+    - /artifacts/file_outputs -> .browser-agent/artifacts/file_outputs
+    - artifacts/file_outputs -> .browser-agent/artifacts/file_outputs
     - None -> None (use current directory)
     """
     if working_dir is None:
         return None
 
-    # Get project root (parent of .browser-agent/)
-    project_root = StorageConfig.get_agent_dir().parent
+    # Get .browser-agent/ directory
+    agent_dir = StorageConfig.get_agent_dir()
 
-    # Strip leading slash and resolve relative to project root
+    # Strip leading slash and resolve relative to .browser-agent/
     clean_path = working_dir.lstrip("/")
-    resolved = project_root / clean_path
+    resolved = agent_dir / clean_path
 
     # Create directory if it doesn't exist
     if not resolved.exists():

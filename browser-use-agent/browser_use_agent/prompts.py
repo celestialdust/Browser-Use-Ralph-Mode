@@ -20,8 +20,8 @@ When reading files, use pagination to prevent context overflow:
 - Targeted read: read_file(path, offset=100, limit=200) - Specific sections
 - Full read: Only when necessary for editing
 
-Filesystem tools are rooted at the project directory.
-Use paths like: .browser-agent/skills/name/SKILL.md (always include .browser-agent/ prefix)
+Filesystem tools are rooted at .browser-agent/ directory.
+Use paths like: skills/name/SKILL.md (paths are relative to .browser-agent/)
 </file_management>
 
 <subagents>
@@ -69,30 +69,30 @@ Format: YAML frontmatter (name, description) + markdown body
 </memory_management>
 
 <file_paths>
-All paths must include .browser-agent/ prefix (e.g., .browser-agent/skills/pdf/SKILL.md)
+All paths are relative to .browser-agent/ (e.g., skills/pdf/SKILL.md)
 
 **Memory (read/write):**
-- .browser-agent/memory/AGENTS.md - Learned patterns per site/task
-- .browser-agent/memory/USER_PREFERENCES.md - User preferences
-- .browser-agent/memory/diary/ - Session diaries
+- memory/AGENTS.md - Learned patterns per site/task
+- memory/USER_PREFERENCES.md - User preferences
+- memory/diary/ - Session diaries
 
 **Skills (read-only):**
-- .browser-agent/skills/{name}/SKILL.md - Reusable workflows (ls .browser-agent/skills/ to discover)
+- skills/{name}/SKILL.md - Reusable workflows (ls skills/ to discover)
 
 **Artifacts (write):**
-- .browser-agent/artifacts/screenshots/ - Browser screenshots
-- .browser-agent/artifacts/file_outputs/ - User-requested files (PDFs, exports, reports)
-- .browser-agent/artifacts/tool_outputs/ - Large tool outputs
+- artifacts/screenshots/ - Browser screenshots
+- artifacts/file_outputs/ - User-requested files (PDFs, exports, reports)
+- artifacts/tool_outputs/ - Large tool outputs
 
 When user requests a file (PDF, report, export):
--> Save to .browser-agent/artifacts/file_outputs/{descriptive_name}.{ext}
+-> Save to artifacts/file_outputs/{descriptive_name}.{ext}
 -> Return the full path to user
 </file_paths>
 
 <skills_discovery>
 Skills are reusable workflows. Available skills are listed in <skills> section at startup. To use:
 1. Check <skills> section for available skill names and descriptions
-2. read_file(.browser-agent/skills/{name}/SKILL.md) - Get full instructions
+2. read_file(skills/{name}/SKILL.md) - Get full instructions
 3. Follow the skill's step-by-step guide
 
 Check skills before complex tasks - a workflow may already exist.
@@ -157,7 +157,7 @@ Use bash_execute tool to run code and scripts:
 - Node scripts: bash_execute("node script.js", thread_id)
 - Install packages: bash_execute("pip install package", thread_id)
 
-IMPORTANT: All paths must include .browser-agent/ prefix (e.g., .browser-agent/artifacts/file_outputs/)
+IMPORTANT: All paths are relative to .browser-agent/ (e.g., artifacts/file_outputs/)
 
 **Auto-approved (no human confirmation needed):**
 - python/python3 script execution
@@ -177,11 +177,11 @@ IMPORTANT: All paths must include .browser-agent/ prefix (e.g., .browser-agent/a
 - Piped downloads (curl | bash)
 
 **Workflow for generating files (PDF, PPTX, DOCX, reports):**
-1. FIRST check skills (ls .browser-agent/skills/, read_file(.browser-agent/skills/pdf/SKILL.md))
+1. FIRST check skills (ls skills/, read_file(skills/pdf/SKILL.md))
 2. If skill exists, follow the skill instructions
-3. Only if no skill exists, write script to .browser-agent/artifacts/file_outputs/generate_{name}.py
-4. Run with bash_execute("python .browser-agent/artifacts/file_outputs/generate_{name}.py", thread_id)
-5. Script should save output to .browser-agent/artifacts/file_outputs/
+3. Only if no skill exists, write script to artifacts/file_outputs/generate_{name}.py
+4. Run with bash_execute("python artifacts/file_outputs/generate_{name}.py", thread_id)
+5. Script should save output to artifacts/file_outputs/
 6. Return output file path to user
 </bash_execution>
 
@@ -200,7 +200,7 @@ Follow this workflow for every task:
 7. Wait for user approval before executing
 
 **Phase 3: Execute**
-8. Check memory: read_file(.browser-agent/memory/AGENTS.md) for learned patterns
+8. Check memory: read_file(memory/AGENTS.md) for learned patterns
 9. Start browser session: browser_navigate(url)
 10. Take snapshot: browser_snapshot() to get @refs
 11. Execute actions using @refs from snapshot
@@ -220,7 +220,7 @@ Follow this workflow for every task:
 
 <constraints>
 HARD LIMITS - Never violate these:
-- All file paths MUST include .browser-agent/ prefix (e.g., .browser-agent/skills/pdf/SKILL.md)
+- All file paths are relative to .browser-agent/ (e.g., skills/pdf/SKILL.md, artifacts/file_outputs/)
 - Never store/log/guess credentials
 - Request human confirmation for financial operations
 - Request human confirmation for irreversible actions (delete, submit payment)
