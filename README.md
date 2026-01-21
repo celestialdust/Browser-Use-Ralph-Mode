@@ -7,18 +7,376 @@ A complete browser automation system combining [LangChain DeepAgents](https://do
 ![Node 18+](https://img.shields.io/badge/Node-18+-green)
 ![License MIT](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## 🎯 Overview
+## Overview
 
 Browser Use is a full-stack browser automation agent that can:
-- 🤖 **Plan and execute** complex multi-step browser tasks
-- 🔄 **Self-correct** using Ralph Mode's iterative refinement
-- 🌐 **Control browsers** via `agent-browser` CLI
-- 📺 **Stream live** browser viewport via WebSocket
-- 🧠 **Show thinking** in real-time like Claude
-- 🔐 **Request approval** for sensitive actions
-- 🧵 **Isolate sessions** per conversation thread
+- **Plan and execute** complex multi-step browser tasks
+- **Self-correct** using Ralph Mode's iterative refinement
+- **Control browsers** via `agent-browser` CLI
+- **Stream live** browser viewport via WebSocket
+- **Show thinking** in real-time like Claude
+- **Request approval** for sensitive actions
+- **Isolate sessions** per conversation thread
 
-## 🏗️ Architecture
+## System Architecture
+
+### High-Level Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND (Next.js)                              │
+│  ┌─────────────┐  ┌──────────────────┐  ┌─────────────────────────────────┐ │
+│  │   Thread    │  │   Chat Interface │  │       Browser Panel             │ │
+│  │   Sidebar   │  │  ┌────────────┐  │  │  ┌───────────────────────────┐  │ │
+│  │             │  │  │ Messages   │  │  │  │   Live Viewport Stream    │  │ │
+│  │  - Today    │  │  │ ┌────────┐ │  │  │  │                           │  │ │
+│  │  - Yesterday│  │  │ │Thought │ │  │  │  │   WebSocket Connection    │  │ │
+│  │  - Older    │  │  │ │Process │ │  │  │  │   ws://localhost:9223     │  │ │
+│  │             │  │  │ └────────┘ │  │  │  │                           │  │ │
+│  │             │  │  │ ┌────────┐ │  │  │  └───────────────────────────┘  │ │
+│  │             │  │  │ │Tool    │ │  │  │                                 │ │
+│  │             │  │  │ │Calls   │ │  │  │  Auto-expand on session start   │ │
+│  │             │  │  │ └────────┘ │  │  │  Auto-collapse on session end   │ │
+│  └─────────────┘  │  └────────────┘  │  └─────────────────────────────────┘ │
+│        15%        │       50%        │              35%                     │
+└───────────────────┴──────────────────┴──────────────────────────────────────┘
+                                    │
+                    HTTP/SSE Stream (LangGraph SDK)
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BACKEND (LangGraph + Python)                         │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                        LangGraph Server (:2024)                         ││
+│  │  ┌───────────────┐  ┌────────────────┐  ┌────────────────────────────┐ ││
+│  │  │ State Manager │  │ Checkpoint DB  │  │    Thread Isolation        │ ││
+│  │  │               │  │   (SQLite)     │  │                            │ ││
+│  │  │ - messages    │  │                │  │  thread_id → browser_session│ ││
+│  │  │ - todos       │  │  Persistent    │  │  thread_id → memory_context │ ││
+│  │  │ - files       │  │  across        │  │  thread_id → checkpoint     │ ││
+│  │  │ - browser     │  │  restarts      │  │                            │ ││
+│  │  └───────────────┘  └────────────────┘  └────────────────────────────┘ ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                    │                                         │
+│  ┌─────────────────────────────────┴─────────────────────────────────────┐  │
+│  │                         DeepAgents Graph                               │  │
+│  │  ┌─────────┐    ┌──────────┐    ┌──────────┐    ┌─────────────────┐   │  │
+│  │  │  Plan   │───▶│ Execute  │───▶│ Reflect  │───▶│ Ralph Iteration │   │  │
+│  │  │(Todos)  │    │ (Tools)  │    │(Memory)  │    │   (if enabled)  │   │  │
+│  │  └─────────┘    └──────────┘    └──────────┘    └─────────────────┘   │  │
+│  │       │              │               │                   │            │  │
+│  │       ▼              ▼               ▼                   ▼            │  │
+│  │  write_todos   Browser Tools   AGENTS.md          Max iterations      │  │
+│  │               + Bash Tools    USER_PREFS.md       then return         │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                    │                                         │
+└────────────────────────────────────┼─────────────────────────────────────────┘
+                                     │
+                    subprocess (agent-browser CLI)
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BROWSER LAYER (agent-browser)                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                      Chromium Instance (Headless)                       ││
+│  │  ┌───────────────────┐  ┌────────────────────┐  ┌────────────────────┐ ││
+│  │  │   Page Control    │  │  Element Refs      │  │  Screencast Stream │ ││
+│  │  │                   │  │                    │  │                    │ ││
+│  │  │  - navigate(url)  │  │  @e1, @e2, @e3...  │  │  JPEG frames →     │ ││
+│  │  │  - click(@ref)    │  │  from snapshot -i  │  │  WebSocket :9223   │ ││
+│  │  │  - fill(@ref)     │  │                    │  │                    │ ││
+│  │  │  - screenshot()   │  │  Valid per page    │  │  30fps streaming   │ ││
+│  │  └───────────────────┘  └────────────────────┘  └────────────────────┘ ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+User Input                                                    Browser Viewport
+    │                                                               ▲
+    ▼                                                               │
+┌─────────┐   HTTP POST    ┌─────────────┐   subprocess   ┌─────────────────┐
+│ Next.js │ ─────────────▶ │  LangGraph  │ ────────────▶  │  agent-browser  │
+│   UI    │                │   Server    │                │      CLI        │
+└─────────┘                └─────────────┘                └─────────────────┘
+    ▲                            │                               │
+    │         SSE Stream         │                               │
+    │  (messages, todos, tools,  │                               │
+    │   thought, browser_session)│                               │
+    └────────────────────────────┘                               │
+                                                                 │
+    ┌────────────────────────────────────────────────────────────┘
+    │  WebSocket Stream (ws://localhost:9223)
+    │  - JPEG frames (base64)
+    │  - viewport metadata
+    ▼
+┌─────────────────┐
+│  BrowserPanel   │
+│  Live Preview   │
+└─────────────────┘
+```
+
+### Component Interactions
+
+#### Frontend Components
+
+```
+page.tsx (Main Layout)
+    │
+    ├── ChatProvider (Context)
+    │   └── useChat hook
+    │       ├── LangGraph SDK client
+    │       ├── Thread state management
+    │       ├── Message streaming
+    │       ├── Browser session detection
+    │       └── Error handling
+    │
+    ├── ThreadList
+    │   ├── SWR infinite loading
+    │   ├── Time-based grouping
+    │   └── Interrupt count badge
+    │
+    ├── ChatInterface
+    │   ├── ChatMessage[]
+    │   │   ├── ThoughtProcess (waterfall display)
+    │   │   ├── ToolCallBox (collapsible)
+    │   │   └── SubAgentIndicator
+    │   ├── TodoList (grouped by status)
+    │   ├── FileExplorer
+    │   └── InputArea
+    │
+    └── ChatWithBrowserPanel
+        ├── ResizablePanel (chat)
+        └── ResizablePanel (browser)
+            └── BrowserPanelContent
+                └── WebSocket → img[src=base64]
+```
+
+#### Backend Components
+
+```
+browser_agent.py (Graph Definition)
+    │
+    ├── create_browser_agent()
+    │   └── create_deep_agent()
+    │       ├── Planning node (write_todos)
+    │       ├── Execution node (tools)
+    │       ├── Reflection node (memory)
+    │       └── Subagent spawning (task tool)
+    │
+    ├── Tools
+    │   ├── BROWSER_TOOLS (tools.py)
+    │   │   ├── browser_navigate
+    │   │   ├── browser_click
+    │   │   ├── browser_fill
+    │   │   ├── browser_snapshot
+    │   │   └── ... (30+ tools)
+    │   │
+    │   ├── BASH_TOOLS (bash_tool.py)
+    │   │   └── bash_execute (with security tiers)
+    │   │
+    │   ├── HUMAN_TOOLS (human_loop.py)
+    │   │   ├── request_guidance
+    │   │   ├── request_credentials
+    │   │   └── request_confirmation
+    │   │
+    │   └── REFLECTION_TOOLS (reflection.py)
+    │       ├── read_memory
+    │       ├── update_agents_file
+    │       └── update_user_preferences
+    │
+    └── State (state.py)
+        ├── messages: BaseMessage[]
+        ├── todos: Todo[]
+        ├── files: dict
+        ├── browser_session: BrowserSession
+        ├── current_thought: ThoughtProcess
+        └── approval_queue: ApprovalRequest[]
+```
+
+### Filesystem Architecture
+
+The `.browser-agent/` directory serves as the unified root for all agent operations:
+
+```
+.browser-agent/                    # Agent's "home directory"
+│
+├── artifacts/                     # Generated outputs
+│   ├── file_outputs/             # User-requested files (PDFs, CSVs, etc.)
+│   ├── screenshots/              # Browser screenshots
+│   └── tool_outputs/             # Large tool results
+│
+├── memory/                        # Persistent memory
+│   ├── AGENTS.md                 # Learned patterns (website, task, error recovery)
+│   ├── USER_PREFERENCES.md       # User preferences and settings
+│   └── diary/                    # Session completion logs
+│
+├── skills/                        # Reusable skill definitions
+│   ├── agent-browser/            # Browser automation skill
+│   ├── pdf.md                    # PDF manipulation
+│   ├── pptx.md                   # PowerPoint creation
+│   └── docx.md                   # Word document handling
+│
+├── checkpoints/                   # LangGraph state persistence
+│   └── browser_agent.db          # SQLite checkpoint database
+│
+└── traces/                        # Debug traces (optional)
+```
+
+**Path Resolution:**
+
+Both the DeepAgents `FilesystemBackend` and `bash_execute` tool use `.browser-agent/` as root:
+
+```python
+# DeepAgents FilesystemBackend
+write_file("/artifacts/report.pdf", content)  # → .browser-agent/artifacts/report.pdf
+
+# bash_execute (cwd defaults to .browser-agent/)
+bash_execute("python artifacts/script.py")    # Runs from .browser-agent/
+```
+
+### State Management
+
+#### Thread Isolation
+
+Each conversation thread maintains isolated state:
+
+```python
+thread_id = "abc-123"
+
+# Isolated per thread:
+- Browser session (sessionId, streamUrl, isActive)
+- LangGraph checkpoint (messages, todos, files)
+- WebSocket port (9223 + hash(thread_id) % 100)
+
+# Shared across threads:
+- Memory files (AGENTS.md, USER_PREFERENCES.md)
+- Skills definitions
+- Configuration
+```
+
+#### State Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     LangGraph State                              │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  messages: BaseMessage[]                                   │  │
+│  │    - HumanMessage (user input)                            │  │
+│  │    - AIMessage (agent response + tool_calls)              │  │
+│  │    - ToolMessage (tool results)                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  todos: Todo[]                                             │  │
+│  │    - content: string                                       │  │
+│  │    - status: "pending" | "in_progress" | "completed"       │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  browser_session: BrowserSession | null                    │  │
+│  │    - sessionId: string (thread_id)                        │  │
+│  │    - streamUrl: string (ws://localhost:9223)              │  │
+│  │    - isActive: boolean                                     │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  current_thought: ThoughtProcess | null                    │  │
+│  │    - content: string (streaming)                          │  │
+│  │    - isComplete: boolean                                   │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Checkpoint on each node
+                              ▼
+                    ┌─────────────────┐
+                    │   SQLite DB     │
+                    │  (persistent)   │
+                    └─────────────────┘
+```
+
+### WebSocket Streaming Architecture
+
+```
+┌─────────────────┐                      ┌─────────────────┐
+│  agent-browser  │                      │    Frontend     │
+│    (backend)    │                      │  BrowserPanel   │
+└────────┬────────┘                      └────────┬────────┘
+         │                                        │
+         │  Start screencast                      │
+         │  on browser_navigate                   │
+         ▼                                        │
+┌─────────────────┐     WebSocket      ┌─────────────────┐
+│  Screencast     │ ─────────────────▶ │   WebSocket     │
+│  Server :9223   │   JPEG frames      │   Client        │
+└─────────────────┘   (base64)         └─────────────────┘
+         │                                        │
+         │  Frame message:                        │
+         │  {                                     │
+         │    type: "frame",                      │
+         │    data: "base64...",                  │
+         │    metadata: {                         │
+         │      deviceWidth,                      │
+         │      deviceHeight,                     │
+         │      ...                               │
+         │    }                                   │
+         │  }                                     │
+         │                                        ▼
+         │                              ┌─────────────────┐
+         │                              │  <img src=      │
+         │                              │   data:image/   │
+         │                              │   jpeg;base64>  │
+         │                              └─────────────────┘
+         │
+         │  On browser_close:
+         │  - Stop screencast
+         │  - Close WebSocket
+         │  - Frontend auto-collapses panel
+         ▼
+```
+
+### Interrupt Flow (Human-in-the-Loop)
+
+```
+Agent encounters need for human input
+                │
+                ▼
+┌─────────────────────────────────────┐
+│  langgraph.types.interrupt({        │
+│    type: "guidance" | "credentials" │
+│          | "confirmation",          │
+│    question: "...",                 │
+│    context: "..."                   │
+│  })                                 │
+└──────────────────┬──────────────────┘
+                   │
+                   │ Stream interrupted state
+                   ▼
+┌─────────────────────────────────────┐
+│  Frontend detects interrupt         │
+│  stream.interrupt !== null          │
+└──────────────────┬──────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────┐
+│  Render appropriate UI:             │
+│  - HumanLoopInterrupt (guidance)    │
+│  - CredentialsForm (credentials)    │
+│  - ConfirmationDialog (confirm)     │
+└──────────────────┬──────────────────┘
+                   │
+                   │ User responds
+                   ▼
+┌─────────────────────────────────────┐
+│  resumeInterrupt(response)          │
+│  → stream.submit(response)          │
+└──────────────────┬──────────────────┘
+                   │
+                   │ Graph resumes
+                   ▼
+        Agent continues execution
+```
+
+## Project Structure
 
 ```
 Browser-Use/
@@ -32,6 +390,8 @@ Browser-Use/
 │   │   ├── subagent_interrupt.py  # Subagent interrupt forwarding
 │   │   ├── state.py          # State definitions
 │   │   ├── prompts.py        # System prompts + memory management
+│   │   ├── reflection.py     # Memory read/write tools
+│   │   ├── storage/          # Checkpoint and config
 │   │   ├── skills/           # Skill loader
 │   │   └── utils.py          # StreamManager
 │   ├── agent.py              # CLI entry point
@@ -39,44 +399,39 @@ Browser-Use/
 │   └── langgraph.json        # LangGraph config
 │
 ├── deep-agents-ui/            # Next.js Frontend
-│   ├── src/app/
-│   │   ├── api/skills/       # Skills API route
-│   │   ├── components/       # UI components
-│   │   │   ├── ChatInterface.tsx
-│   │   │   ├── BrowserPanel.tsx         # Persistent browser panel
-│   │   │   ├── BrowserPreview.tsx
-│   │   │   ├── ThoughtProcess.tsx       # Waterfall display
-│   │   │   ├── ReasoningDisplay.tsx     # OpenAI reasoning summary
-│   │   │   ├── ConfigDialog.tsx         # Settings + skills display
-│   │   │   ├── HumanLoopInterrupt.tsx   # Guidance/credentials/confirmation UI
-│   │   │   └── BrowserCommandApproval.tsx
-│   │   ├── hooks/           # React hooks
-│   │   ├── providers/       # Context providers
-│   │   └── types/          # TypeScript definitions
-│   ├── .env.local.example   # Environment variables template
-│   └── ...
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── api/skills/       # Skills API route
+│   │   │   ├── components/       # UI components
+│   │   │   │   ├── ChatInterface.tsx
+│   │   │   │   ├── ChatMessage.tsx
+│   │   │   │   ├── BrowserPanel.tsx
+│   │   │   │   ├── ThoughtProcess.tsx
+│   │   │   │   ├── ToolCallBox.tsx
+│   │   │   │   ├── ThreadList.tsx
+│   │   │   │   └── ...
+│   │   │   ├── hooks/
+│   │   │   │   ├── useChat.ts    # Main chat hook
+│   │   │   │   └── useThreads.ts # Thread list hook
+│   │   │   ├── providers/
+│   │   │   │   ├── ChatProvider.tsx
+│   │   │   │   └── ClientProvider.tsx
+│   │   │   └── types/
+│   │   └── components/ui/        # shadcn/ui components
+│   └── .env.local.example
 │
-├── .browser-agent/            # 📚 Agent memory and skills
-│   ├── skills/               # Skill files
-│   │   ├── agent-browser/    # Browser automation skill
-│   │   ├── skill-creator.md  # Guide for creating skills
-│   │   ├── pdf.md           # PDF manipulation
-│   │   ├── pptx.md          # PowerPoint creation/editing
-│   │   └── docx.md          # Word document handling
-│   ├── memory/              # Agent memory files
-│   │   ├── AGENTS.md        # Learned patterns (standardized)
-│   │   ├── USER_PREFERENCES.md  # User preferences
-│   │   └── diary/           # Session diaries
-│   └── artifacts/           # Generated files
-│       ├── screenshots/     # Browser screenshots
-│       ├── file_outputs/    # User-requested files (PDFs, exports)
-│       └── tool_outputs/    # Large tool outputs
+├── .browser-agent/            # Agent memory and artifacts
+│   ├── artifacts/            # Generated files
+│   ├── memory/               # Persistent memory
+│   ├── skills/               # Skill definitions
+│   └── checkpoints/          # State persistence
 │
-├── agent.md                  # 📖 Technical reference
+├── agent.md                  # Technical reference
+├── CLAUDE.md                 # AI assistant instructions
 └── README.md                 # This file
 ```
 
-## ✨ Features
+## Features
 
 ### DeepAgents Integration
 - **Planning & Decomposition**: Built-in `write_todos` tool with parallel vs sequential task identification
@@ -92,11 +447,10 @@ Browser-Use/
 - **Settings Integration**: View and manage skills in UI
 
 ### Memory Management
-- **AGENTS.md**: Store learned patterns with enforced structure (Website Patterns, Task Patterns, Error Recovery sections)
-- **USER_PREFERENCES.md**: Store user preferences with standardized sections (General, Browsing, Communication, Credentials, Workflow Preferences)
+- **AGENTS.md**: Store learned patterns with enforced structure
+- **USER_PREFERENCES.md**: Store user preferences with standardized sections
 - **Diary**: Record task completions and learnings
 - **Skills**: Create reusable workflows
-- **Fixed Paths**: Agent knows exact paths for all memory/artifacts
 
 ### Human-in-the-Loop
 - **Guidance Requests**: Agent can ask for help when stuck
@@ -108,7 +462,7 @@ Browser-Use/
 - **Script Execution**: Run Python/Node scripts
 - **Package Installation**: pip/npm install commands
 - **Security Tiers**: Auto-approve safe, require approval for others, block dangerous
-- **File Generation**: Create PDFs, reports, exports via scripts
+- **Unified Root**: All paths resolve relative to `.browser-agent/`
 
 ### Ralph Mode
 - **Iterative Refinement**: Agent retries with improvements
@@ -120,17 +474,14 @@ Browser-Use/
 - **Full Browser Control**: Navigate, click, fill, type, screenshot
 - **Element Refs**: Clean `@e1` syntax for interactions
 - **Session Isolation**: Each thread gets its own browser
-- **Streaming**: Live WebSocket viewport streaming
+- **Live Streaming**: WebSocket viewport streaming
 
 ### Claude-Style UI
 - **Waterfall Thought Process**: Hierarchical, nested display of reasoning
 - **3-Panel Layout**: Resizable threads, chat, and browser panels
-- **Thread Sidebar**: Auto-truncating titles with hover tooltips
-- **Compact Tool Display**: Key-value format with truncated arguments (50 chars) and results (300 chars)
-- **Persistent Browser Preview**: Right-side panel with live WebSocket streaming
+- **Persistent Browser Preview**: Right-side panel with live streaming
 - **Clean Design**: Anthropic-inspired minimal color palette
-- **Smooth Animations**: Character-by-character streaming with 200ms transitions
-- **Interactive Approvals**: Review actions before execution
+- **Smooth Animations**: 200ms transitions
 
 ### Selective Approval
 **Auto-approved (read-only)**:
@@ -141,7 +492,7 @@ Browser-Use/
 - `browser_navigate`, `browser_click`, `browser_fill`
 - `browser_type`, `browser_press_key`, `browser_eval`
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -209,92 +560,11 @@ source .venv/bin/activate
 langgraph dev --port 2024
 ```
 
-### 5. Configure UI
+### 5. Open UI
 
-**Option A: Environment Variables** (Recommended)
-- Settings auto-populate from `.env.local`
-- No manual configuration needed
+Navigate to http://localhost:3000 and start chatting!
 
-**Option B: Settings Dialog**
-1. Open http://localhost:3000
-2. Click Settings (⚙️) in top right
-3. Configure:
-   - **Deployment URL**: `http://127.0.0.1:2024`
-   - **Assistant ID**: `browser-agent`
-   - **Ralph Mode**: Enable/disable iterative refinement
-   - **Max Iterations**: Set refinement passes (1-20)
-   - **Browser Stream Port**: WebSocket port (default: 9223)
-4. Click Save
-
-## 📖 Usage Examples
-
-### Web UI Chat
-
-**Simple Navigation**:
-```
-Navigate to example.com and tell me the main heading
-```
-
-**Form Interaction**:
-```
-Go to https://httpbin.org/forms/post, fill in the customer name 
-as "John Doe", fill in the telephone as "555-1234", and submit the form
-```
-
-**Research Task (Ralph Mode)**:
-```
-Research the latest features in Next.js 15 and create a summary 
-with the top 3 most important improvements
-```
-
-### CLI Usage
-
-**Standard Mode**:
-```bash
-cd browser-use-agent
-source .venv/bin/activate
-python agent.py --task "Navigate to google.com and search for 'LangChain'"
-```
-
-**Ralph Mode (Iterative)**:
-```bash
-python agent.py --ralph \
-  --task "Research browser automation tools and compare their features" \
-  --iterations 5
-```
-
-**Custom Thread ID**:
-```bash
-python agent.py --thread-id my-research-session \
-  --task "Find pricing information for cloud services"
-```
-
-### Python API
-
-```python
-from browser_use_agent import create_browser_agent, run_ralph_mode
-from langchain_core.messages import HumanMessage
-
-# Create agent
-agent = create_browser_agent()
-
-# Standard mode
-result = agent.invoke({
-    "messages": [HumanMessage(content="Navigate to example.com")],
-    "thread_id": "my-thread"
-}, config={"configurable": {"thread_id": "my-thread"}})
-
-# Ralph mode for complex tasks
-result = run_ralph_mode(
-    task="Research and compare top 3 web frameworks",
-    max_iterations=5,
-    agent=agent
-)
-
-print(result["messages"][-1].content)
-```
-
-## 🔧 Configuration
+## Configuration
 
 ### Backend Configuration
 
@@ -308,89 +578,52 @@ print(result["messages"][-1].content)
 | `DEPLOYMENT_NAME` | Model deployment name | `gsds-gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
 | `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
-| `USE_CDP` | Use Chrome DevTools Protocol | `false` |
-| `CDP_PORT` | CDP port (when USE_CDP=true) | `9222` |
-
-**CDP Mode** (connect to existing browser):
-```bash
-# Start Chrome with remote debugging
-google-chrome --remote-debugging-port=9222
-
-# Configure backend to use CDP
-USE_CDP=true CDP_PORT=9222 langgraph dev --port 2024
-```
-
-**Python Config Class**:
-```python
-from browser_use_agent.configuration import Config
-
-# Access settings
-Config.AZURE_OPENAI_ENDPOINT
-Config.DEFAULT_MAX_ITERATIONS  # Ralph Mode iterations
-Config.APPROVAL_REQUIRED_TOOLS  # Actions requiring approval
-
-# Validate
-Config.validate()
-```
 
 ### Frontend Configuration
 
-**Environment Variables** (`.env.local`) - Recommended:
+**Environment Variables** (`.env.local`):
 ```env
-# LangGraph Backend
 NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:2024
 NEXT_PUBLIC_ASSISTANT_ID=browser-agent
-
-# LangSmith (Optional)
-NEXT_PUBLIC_LANGSMITH_API_KEY=
-
-# Ralph Mode Configuration
 NEXT_PUBLIC_RALPH_MODE_ENABLED=false
 NEXT_PUBLIC_RALPH_MAX_ITERATIONS=5
-
-# Browser Streaming
 NEXT_PUBLIC_BROWSER_STREAM_PORT=9223
 ```
 
-**Settings UI** (Overrides env variables):
-- Deployment URL (backend API)
-- Assistant ID (graph name)
-- LangSmith API Key (optional)
-- Ralph Mode toggle and max iterations
-- Browser stream port
+## Usage Examples
 
-## 🎨 UI Design Philosophy
+### Web UI Chat
 
-Inspired by [Anthropic's Claude](https://claude.ai/):
-
-- **Minimalist**: Clean, uncluttered interface with 3-panel layout
-- **Waterfall Thinking**: Hierarchical display of reasoning steps
-- **Persistent Browser**: Resizable right panel for live viewport streaming
-- **Muted Colors**: Soft grays, subtle accents matching Anthropic's palette
-- **Smooth Animations**: 200ms cubic-bezier transitions, character streaming
-- **Contextual**: Show agent thinking with nested structure, hide complexity
-- **Responsive**: Mobile-friendly, adaptive layouts with panel management
-
-**Color Palette**:
-- Background: `#ffffff` (light) / `#1a1a1a` (dark)
-- Surface: `#f5f5f5` / `#2a2a2a`
-- Border: `#e5e5e5` / `#404040`
-- Primary: `#2f6868` / `#4db6ac`
-- Text: `#1a1a1a`, `#666666`, `#999999` / `#f0f0f0`, `#a0a0a0`
-
-**Layout Structure**:
+**Simple Navigation**:
 ```
-┌─────────────┬────────────────┬─────────────┐
-│  Threads    │     Chat       │   Browser   │
-│  Sidebar    │   Messages     │   Panel     │
-│  (15-30%)   │   (50-80%)     │   (20-50%)  │
-└─────────────┴────────────────┴─────────────┘
+Navigate to example.com and tell me the main heading
 ```
 
-## 📚 Documentation
+**Form Interaction**:
+```
+Go to https://httpbin.org/forms/post, fill in the customer name
+as "John Doe", fill in the telephone as "555-1234", and submit the form
+```
+
+**Research Task (Ralph Mode)**:
+```
+Research the latest features in Next.js 15 and create a summary
+with the top 3 most important improvements
+```
+
+### CLI Usage
+
+```bash
+# Standard mode
+python agent.py --task "Navigate to google.com and search for 'LangChain'"
+
+# Ralph Mode (iterative)
+python agent.py --ralph --task "Research browser automation tools" --iterations 5
+```
+
+## Documentation
 
 - [Backend README](./browser-use-agent/README.md) - Python agent details
-- [Frontend README](./deep-agents-ui/README.md) - Next.js UI details
 - [agent.md](./agent.md) - Technical reference & implementation
 - Skills: `.browser-agent/skills/` - PDF, PPTX, DOCX, browser automation
 
@@ -398,24 +631,7 @@ Inspired by [Anthropic's Claude](https://claude.ai/):
 - [DeepAgents Docs](https://docs.langchain.com/oss/python/deepagents/overview)
 - [agent-browser Docs](https://agent-browser.dev/)
 - [LangGraph Docs](https://langchain-ai.github.io/langgraph/)
-- [Ralph Mode Example](https://github.com/langchain-ai/deepagents/tree/master/examples/ralph_mode)
 
-### Integration Testing
-
-1. Start backend: `langgraph dev --port 2024`
-2. Start frontend: `yarn dev`
-3. Open http://localhost:3000
-4. Verify environment variables loaded (check settings)
-5. Create new thread
-6. Test scenarios:
-   - Simple navigation
-   - Form interaction
-   - Approval flow
-   - Waterfall thought process display
-   - Persistent browser panel (resizable, reconnection)
-   - 3-panel layout responsiveness
-   - Ralph mode configuration
-   - Multi-step tasks
 ---
 
-Built with using DeepAgents and agent-browser
+Built with DeepAgents and agent-browser
