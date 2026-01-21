@@ -5,9 +5,36 @@ Safe commands run automatically, others require human approval.
 
 import re
 import subprocess
+from pathlib import Path
 from typing import Optional
 from langchain_core.tools import tool
 from langgraph.types import interrupt
+from browser_use_agent.storage.config import StorageConfig
+
+
+def _resolve_working_dir(working_dir: Optional[str]) -> Optional[str]:
+    """Resolve working directory path relative to project root.
+
+    Handles paths like:
+    - /.browser-agent/... -> project_root/.browser-agent/...
+    - .browser-agent/... -> project_root/.browser-agent/...
+    - None -> None (use current directory)
+    """
+    if working_dir is None:
+        return None
+
+    # Get project root (parent of .browser-agent/)
+    project_root = StorageConfig.get_agent_dir().parent
+
+    # Strip leading slash and resolve relative to project root
+    clean_path = working_dir.lstrip("/")
+    resolved = project_root / clean_path
+
+    # Create directory if it doesn't exist
+    if not resolved.exists():
+        resolved.mkdir(parents=True, exist_ok=True)
+
+    return str(resolved)
 
 # Auto-approved command patterns (regex)
 AUTO_APPROVED_PATTERNS = [
@@ -111,8 +138,11 @@ def bash_execute(
 
         print(f"[Bash] Command approved: {command}")
 
+    # Resolve working directory path
+    resolved_dir = _resolve_working_dir(working_dir)
+
     # Execute command
-    print(f"[Bash] Executing: {command}")
+    print(f"[Bash] Executing: {command}" + (f" in {resolved_dir}" if resolved_dir else ""))
 
     try:
         result = subprocess.run(
@@ -121,7 +151,7 @@ def bash_execute(
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd=working_dir,
+            cwd=resolved_dir,
         )
 
         output = ""
