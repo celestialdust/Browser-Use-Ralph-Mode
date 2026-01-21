@@ -115,7 +115,7 @@ export function BrowserCommandApproval({
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Command:
               </label>
-              <div className="mt-1 rounded-md bg-gray-50 dark:bg-gray-800 px-3 py-2 font-mono text-sm border border-gray-200 dark:border-gray-700">
+              <div className="mt-1 rounded-md bg-gray-50 dark:bg-gray-800 px-3 py-2 font-mono text-sm border border-gray-200 dark:border-gray-700 max-h-[150px] overflow-auto">
                 agent-browser {currentCommand.command.replace("browser_", "")}{" "}
                 {formatArgs(currentCommand.args)}
               </div>

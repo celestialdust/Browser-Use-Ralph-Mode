@@ -213,7 +213,7 @@ export function HumanLoopInterrupt({ type, data, subagentName, onRespond }: Huma
 
           {type === "bash_approval" && (
             <>
-              <pre className="bg-muted/40 text-foreground p-2 rounded mt-1 overflow-x-auto text-xs font-mono border border-border">
+              <pre className="bg-muted/40 text-foreground p-2 rounded mt-1 max-h-[200px] overflow-auto text-xs font-mono border border-border whitespace-pre-wrap break-all">
                 $ {data.command}
               </pre>
               <div className="flex gap-2 mt-3">
