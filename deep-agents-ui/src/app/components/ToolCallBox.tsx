@@ -180,16 +180,22 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
                       Arguments
                     </h4>
                     <div className="space-y-1">
-                      {Object.entries(args).map(([key, value]) => (
-                        <div key={key} className="text-sm">
-                          <span className="font-medium text-foreground">{key}:</span>{' '}
-                          <span className="text-muted-foreground">
-                            {typeof value === "string"
-                              ? value
-                              : JSON.stringify(value)}
-                          </span>
-                        </div>
-                      ))}
+                      {Object.entries(args).map(([key, value]) => {
+                        const displayValue = typeof value === "string"
+                          ? value
+                          : JSON.stringify(value);
+                        const truncatedValue = displayValue.length > 50
+                          ? displayValue.slice(0, 50) + "..."
+                          : displayValue;
+                        return (
+                          <div key={key} className="text-sm">
+                            <span className="font-medium text-foreground">{key}:</span>{' '}
+                            <span className="text-muted-foreground">
+                              {truncatedValue}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
