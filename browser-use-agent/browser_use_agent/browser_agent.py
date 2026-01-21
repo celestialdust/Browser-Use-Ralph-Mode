@@ -72,7 +72,7 @@ def _load_context_files(agent_dir) -> str:
             skills_list = "\n".join(skill_entries)
             context_sections.append(
                 f"<skills>\nAvailable skills:\n{skills_list}\n\n"
-                f"To use a skill: read_file(skills/[name]/SKILL.md) for full instructions.\n</skills>"
+                f"To use a skill: read_file(.browser-agent/skills/[name]/SKILL.md) for full instructions.\n</skills>"
             )
             print(f"[Agent] Loaded {len(skill_entries)} skill metadata entries")
 
@@ -117,11 +117,12 @@ def create_browser_agent(
     # Get base system prompt
     base_prompt = get_system_prompt(system_prompt)
 
-    # Create filesystem backend
+    # Create filesystem backend rooted at project root (parent of .browser-agent/)
     agent_dir = StorageConfig.get_agent_dir()
-    print(f"[Agent] Filesystem backend: {agent_dir}")
+    project_root = agent_dir.parent
+    print(f"[Agent] Filesystem backend: {project_root}")
 
-    # Load context files (AGENTS.md, agent.md, skills metadata)
+    # Load context files (AGENTS.md, skills metadata)
     context = _load_context_files(agent_dir)
 
     # Combine base prompt with context
@@ -142,7 +143,7 @@ def create_browser_agent(
         checkpointer = None  # Will use InMemorySaver by default
 
     filesystem_backend = FilesystemBackend(
-        root_dir=str(agent_dir),
+        root_dir=str(project_root),
         virtual_mode=True  # Treat all paths as relative to root_dir, strip leading slashes
     )
 
