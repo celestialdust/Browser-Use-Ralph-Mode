@@ -158,14 +158,18 @@ export function useChat({
     experimental_thread: thread,
   });
 
-  // Clear browser session when switching threads to prevent stale connections
+  // Clear browser session and errors when switching threads to prevent stale state
   const prevThreadIdRef = useRef<string | null>(threadId);
   useEffect(() => {
     // Only clear if thread actually changed (not on initial mount)
     if (prevThreadIdRef.current !== null && threadId !== prevThreadIdRef.current) {
-      console.log("[useChat] Thread changed, clearing browser session state");
+      console.log("[useChat] Thread changed, clearing browser session and error state");
       // Use functional update to avoid unnecessary re-renders if already null
       setBrowserSession((prev) => prev === null ? prev : null);
+      // Clear any errors from the previous thread
+      setChatError(null);
+      retryCountRef.current = 0;
+      lastInputRef.current = null;
     }
     prevThreadIdRef.current = threadId;
   }, [threadId]);
@@ -217,14 +221,14 @@ export function useChat({
       if (hasBrowserNavigate && threadId) {
         // Extract actual stream URL from browser_navigate tool result
         let streamUrl = `ws://localhost:${browserStreamPort}`; // Default fallback
-        
+
         // Look for the MOST RECENT browser_navigate tool result message
         // Use reverse to find the last occurrence, not the first
-        const navigateResult = [...messages].reverse().find((m: any) => 
-          m.type === "tool" && 
+        const navigateResult = [...messages].reverse().find((m: any) =>
+          m.type === "tool" &&
           m.name === "browser_navigate"
         );
-        
+
         if (navigateResult && typeof navigateResult.content === 'string') {
           const urlMatch = navigateResult.content.match(/Browser stream available at (ws:\/\/[^\s]+)/);
           if (urlMatch && urlMatch[1]) {
@@ -232,10 +236,17 @@ export function useChat({
             console.log("[Browser Session] Extracted stream URL from most recent browser_navigate:", streamUrl);
           }
         }
-        
+
         // Browser session started with extracted or fallback URL
-        // Always update to ensure we're using the latest stream URL
+        // Only update if values actually changed to prevent unnecessary re-renders
         setBrowserSession((prev) => {
+          if (
+            prev?.sessionId === threadId &&
+            prev?.streamUrl === streamUrl &&
+            prev?.isActive === true
+          ) {
+            return prev; // No change, return same reference
+          }
           if (prev && prev.streamUrl !== streamUrl) {
             console.log("[Browser Session] Stream URL changed:", prev.streamUrl, "->", streamUrl);
           }
@@ -246,8 +257,13 @@ export function useChat({
           };
         });
       } else if (hasBrowserClose) {
-        // Browser session closed
-        setBrowserSession((prev) => prev ? { ...prev, isActive: false } : null);
+        // Browser session closed - only update if currently active
+        setBrowserSession((prev) => {
+          if (!prev || prev.isActive === false) {
+            return prev; // Already inactive or null, no change needed
+          }
+          return { ...prev, isActive: false };
+        });
       }
     }
   }, [stream.messages, stream.values.browser_session, threadId, browserStreamPort]);

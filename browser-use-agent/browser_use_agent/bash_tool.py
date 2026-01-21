@@ -12,19 +12,29 @@ from langgraph.types import interrupt
 from browser_use_agent.storage.config import StorageConfig
 
 
-def _resolve_working_dir(working_dir: Optional[str]) -> Optional[str]:
+def _get_default_working_dir() -> str:
+    """Get the default working directory (.browser-agent/).
+
+    All bash commands run relative to .browser-agent/ by default,
+    matching the FilesystemBackend root used by DeepAgents.
+    """
+    agent_dir = StorageConfig.get_agent_dir()
+    return str(agent_dir)
+
+
+def _resolve_working_dir(working_dir: Optional[str]) -> str:
     """Resolve working directory path relative to .browser-agent/.
 
     Handles paths like:
     - /artifacts/file_outputs -> .browser-agent/artifacts/file_outputs
     - artifacts/file_outputs -> .browser-agent/artifacts/file_outputs
-    - None -> None (use current directory)
+    - None -> .browser-agent/ (default root)
     """
-    if working_dir is None:
-        return None
-
-    # Get .browser-agent/ directory
+    # Get .browser-agent/ directory as base
     agent_dir = StorageConfig.get_agent_dir()
+
+    if working_dir is None:
+        return str(agent_dir)
 
     # Strip leading slash and resolve relative to .browser-agent/
     clean_path = working_dir.lstrip("/")
@@ -35,6 +45,38 @@ def _resolve_working_dir(working_dir: Optional[str]) -> Optional[str]:
         resolved.mkdir(parents=True, exist_ok=True)
 
     return str(resolved)
+
+
+# Virtual path prefixes that should be converted to relative paths
+VIRTUAL_PATH_PREFIXES = [
+    "/artifacts",
+    "/memory",
+    "/skills",
+    "/checkpoints",
+    "/traces",
+]
+
+
+def _make_paths_relative(command: str) -> str:
+    """Convert absolute virtual paths to relative paths.
+
+    Since bash commands run with cwd=.browser-agent/, paths like
+    /artifacts/file_outputs/script.py should become
+    artifacts/file_outputs/script.py (relative to cwd).
+
+    Args:
+        command: The bash command with potential absolute virtual paths
+
+    Returns:
+        Command with virtual paths made relative
+    """
+    resolved_command = command
+    for prefix in VIRTUAL_PATH_PREFIXES:
+        # Replace /prefix with prefix (remove leading slash)
+        if prefix in resolved_command:
+            resolved_command = resolved_command.replace(prefix, prefix.lstrip("/"))
+
+    return resolved_command
 
 # Auto-approved command patterns (regex)
 AUTO_APPROVED_PATTERNS = [
@@ -138,11 +180,14 @@ def bash_execute(
 
         print(f"[Bash] Command approved: {command}")
 
-    # Resolve working directory path
-    resolved_dir = _resolve_working_dir(working_dir)
+    # Resolve working directory path (defaults to .browser-agent/)
+    cwd = _resolve_working_dir(working_dir)
+
+    # Convert absolute virtual paths to relative (e.g., /artifacts/ -> artifacts/)
+    command = _make_paths_relative(command)
 
     # Execute command
-    print(f"[Bash] Executing: {command}" + (f" in {resolved_dir}" if resolved_dir else ""))
+    print(f"[Bash] Executing: {command} (cwd: {cwd})")
 
     try:
         result = subprocess.run(
@@ -151,7 +196,7 @@ def bash_execute(
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd=resolved_dir,
+            cwd=cwd,
         )
 
         output = ""

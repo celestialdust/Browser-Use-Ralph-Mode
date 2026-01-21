@@ -94,7 +94,6 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     sendMessage,
     stopStream,
     resumeInterrupt,
-    browserSession,
     approvalQueue,
     currentThought,
     pendingSubagentInterrupts,
@@ -318,11 +317,11 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     });
   }, [messages, interrupt]);
 
-  const groupedTodos = {
+  const groupedTodos = useMemo(() => ({
     in_progress: todos.filter((t) => t.status === "in_progress"),
     pending: todos.filter((t) => t.status === "pending"),
     completed: todos.filter((t) => t.status === "completed"),
-  };
+  }), [todos]);
 
   const hasTasks = todos.length > 0;
   const hasFiles = Object.keys(files).length > 0;

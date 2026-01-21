@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronDown, ChevronUp, Brain } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -18,25 +18,6 @@ function BlinkingCursor() {
   return (
     <span className="inline-block w-1.5 h-4 bg-gray-600 dark:bg-gray-400 ml-0.5 animate-pulse" />
   );
-}
-
-function streamText(
-  text: string,
-  setter: (value: string) => void,
-  onComplete?: () => void
-) {
-  let index = 0;
-  const interval = setInterval(() => {
-    if (index < text.length) {
-      setter(text.slice(0, index + 1));
-      index++;
-    } else {
-      clearInterval(interval);
-      onComplete?.();
-    }
-  }, 10); // 10ms per character for smooth streaming
-
-  return () => clearInterval(interval);
 }
 
 // Generate a concise summary from the thought content
@@ -200,30 +181,42 @@ export function ThoughtProcess({
   const [parsedSteps, setParsedSteps] = useState<ThoughtStep[]>([]);
   const [summary, setSummary] = useState<string>("");
 
+  // Track previous content to detect actual changes vs re-renders
+  const prevContentRef = useRef<string>("");
+
   useEffect(() => {
-    if (isStreaming && content) {
-      const cleanup = streamText(content, (text) => {
-        setDisplayedContent(text);
-        // Re-parse steps as content streams in
-        const newSteps = parseSteps(text);
-        setParsedSteps(newSteps);
-        // Update summary as content streams
-        setSummary(generateSummary(text));
-      }, () => {
-        setStreamComplete(true);
-      });
-      return cleanup;
-    } else {
-      setDisplayedContent(content);
-      setStreamComplete(true);
-      setSummary(generateSummary(content));
-      // Parse final content into steps
-      if (steps) {
-        setParsedSteps(steps);
-      } else {
-        const newSteps = parseSteps(content);
-        setParsedSteps(newSteps);
+    // When content is streaming from the backend, display it directly without
+    // local character-by-character animation. The backend stream already provides
+    // incremental updates, so double-streaming causes exponential state updates.
+    if (isStreaming) {
+      // Only update if content actually changed to prevent unnecessary re-renders
+      if (content !== prevContentRef.current) {
+        prevContentRef.current = content;
+        setDisplayedContent(content);
+        setSummary(generateSummary(content));
+        // Parse steps from the streaming content
+        if (steps) {
+          setParsedSteps(steps);
+        } else {
+          const newSteps = parseSteps(content);
+          setParsedSteps(newSteps);
+        }
       }
+      return;
+    }
+
+    // For non-streaming content (final/complete), just display directly
+    setDisplayedContent(content);
+    setStreamComplete(true);
+    setSummary(generateSummary(content));
+    prevContentRef.current = content;
+
+    // Parse final content into steps
+    if (steps) {
+      setParsedSteps(steps);
+    } else {
+      const newSteps = parseSteps(content);
+      setParsedSteps(newSteps);
     }
   }, [content, isStreaming, steps]);
 
