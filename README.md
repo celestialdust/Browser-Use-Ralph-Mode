@@ -124,6 +124,8 @@ Browser-Use/
 ### Claude-Style UI
 - **Waterfall Thought Process**: Hierarchical, nested display of reasoning
 - **3-Panel Layout**: Resizable threads, chat, and browser panels
+- **Thread Sidebar**: Auto-truncating titles with hover tooltips
+- **Compact Tool Display**: Key-value format with truncated arguments (50 chars) and results (300 chars)
 - **Persistent Browser Preview**: Right-side panel with live WebSocket streaming
 - **Clean Design**: Anthropic-inspired minimal color palette
 - **Smooth Animations**: Character-by-character streaming with 200ms transitions
