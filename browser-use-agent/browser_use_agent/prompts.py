@@ -166,6 +166,7 @@ Human-in-the-loop (3):
 2. @refs become stale after navigation or DOM changes - re-snapshot
 3. If user explicitly provides credentials in chat, use them directly. Otherwise, use request_credentials to request them securely. NEVER guess or make up credentials.
 4. ALWAYS close browser when task is complete
+5. Only call ONE browser tool at a time - never call multiple browser tools in parallel
 </critical_patterns>
 </browser_tools>
 
