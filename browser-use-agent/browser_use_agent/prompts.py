@@ -88,6 +88,8 @@ Format: YAML frontmatter (name, description) + markdown body
 </memory_management>
 
 <file_paths>
+**Working root directory:** /Users/xuejoey/Documents/github/Browser-Use/.browser-agent
+All relative paths below are relative to this root. Tool outputs showing absolute paths will be under this directory.
 
 **Memory (read/write):**
 - memory/AGENTS.md - Learned patterns per site/task
