@@ -179,9 +179,6 @@ export const FilePreviewPanel: React.FC<FilePreviewPanelProps> = ({
           <Button variant="ghost" size="sm" onClick={handleDownload} title="Download file">
             <Download className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleOpenExternal} title="Open in new tab">
-            <ExternalLink className="w-4 h-4" />
-          </Button>
           <Button variant="ghost" size="sm" onClick={onClose} title="Close">
             <X className="w-4 h-4" />
           </Button>
