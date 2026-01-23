@@ -257,19 +257,6 @@ export const ChatMessage = React.memo<ChatMessageProps>(
             </div>
           )}
 
-          {/* Presented files (file artifacts) - shown right after message content */}
-          {!isUser && presentedFiles && presentedFiles.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {presentedFiles.map((file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  onClick={() => onFileSelect?.(file)}
-                />
-              ))}
-            </div>
-          )}
-
           {hasToolCalls && (
             <div className="mt-4 flex w-full flex-col">
               {toolCalls.map((toolCall: ToolCall) => {
@@ -345,6 +332,19 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                 <SubagentStatusCard
                   key={subagent.subagent_id}
                   subagent={subagent}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Presented files (file artifacts) - shown at the very end */}
+          {!isUser && presentedFiles && presentedFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {presentedFiles.map((file) => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  onClick={() => onFileSelect?.(file)}
                 />
               ))}
             </div>
