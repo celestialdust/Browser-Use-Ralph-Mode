@@ -126,6 +126,8 @@ export function useChat({
   const lastInputRef = useRef<string | null>(null);
   // Track when an interrupt was bypassed by sending a message (to hide it after stop)
   const [interruptBypassed, setInterruptBypassed] = useState(false);
+  // Ref to access current interrupt value without adding to useCallback deps (avoids infinite loop)
+  const interruptRef = useRef<any>(undefined);
 
   // Error handler - stops stream and displays error to user
   const handleStreamError = useCallback((error: unknown) => {
@@ -162,6 +164,9 @@ export function useChat({
     onCreated: onHistoryRevalidate,
     experimental_thread: thread,
   });
+
+  // Keep interruptRef in sync with current stream.interrupt (avoids stale closure in sendMessage)
+  interruptRef.current = stream.interrupt;
 
   // Clear browser session and errors when switching threads to prevent stale state
   const prevThreadIdRef = useRef<string | null>(threadId);
@@ -286,7 +291,8 @@ export function useChat({
 
       // If there's an active interrupt and user sends a message, mark it as bypassed
       // This prevents the credential box from reappearing after clicking Stop
-      if (stream.interrupt) {
+      // Use ref to get current value without adding to deps (which causes infinite loop)
+      if (interruptRef.current) {
         console.log("[useChat] Interrupt bypassed by sending message");
         setInterruptBypassed(true);
       }
