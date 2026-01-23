@@ -35,6 +35,7 @@
     "js-yaml": "^4.1.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.539.0",
+    "mammoth": "^1.11.0",
     "next": "^16.0.7",
     "nuqs": "^2.4.1",
     "react": "19.1.0",
@@ -48,7 +49,8 @@
     "swr": "^2.3.6",
     "tailwind-merge": "^2.6",
     "use-stick-to-bottom": "^1.1.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
