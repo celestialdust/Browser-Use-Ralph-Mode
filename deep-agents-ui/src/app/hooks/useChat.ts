@@ -124,6 +124,8 @@ export function useChat({
   const [chatError, setChatError] = useState<ChatError | null>(null);
   const retryCountRef = useRef(0);
   const lastInputRef = useRef<string | null>(null);
+  // Track when an interrupt was bypassed by sending a message (to hide it after stop)
+  const [interruptBypassed, setInterruptBypassed] = useState(false);
 
   // Error handler - stops stream and displays error to user
   const handleStreamError = useCallback((error: unknown) => {
@@ -153,6 +155,7 @@ export function useChat({
     // Revalidate thread list when stream finishes, errors, or creates new thread
     onFinish: () => {
       retryCountRef.current = 0; // Reset retry count on successful finish
+      setInterruptBypassed(false); // Clear bypassed flag on successful finish
       onHistoryRevalidate?.();
     },
     onError: handleStreamError,
@@ -172,6 +175,7 @@ export function useChat({
       setChatError(null);
       retryCountRef.current = 0;
       lastInputRef.current = null;
+      setInterruptBypassed(false); // Clear bypassed flag on thread change
     }
     prevThreadIdRef.current = threadId;
   }, [threadId]);
@@ -280,6 +284,13 @@ export function useChat({
       retryCountRef.current = 0;
       lastInputRef.current = typeof content === "string" ? content : JSON.stringify(content);
 
+      // If there's an active interrupt and user sends a message, mark it as bypassed
+      // This prevents the credential box from reappearing after clicking Stop
+      if (stream.interrupt) {
+        console.log("[useChat] Interrupt bypassed by sending message");
+        setInterruptBypassed(true);
+      }
+
       // Cast to any to allow multimodal content - the SDK handles various content types
       const newMessage: Message = { id: uuidv4(), type: "human", content: content as any };
       stream.submit(
@@ -295,7 +306,7 @@ export function useChat({
       // Update thread list immediately when sending a message
       onHistoryRevalidate?.();
     },
-    [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit]
+    [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit, stream.interrupt]
   );
 
   const clearError = useCallback(() => {
@@ -376,6 +387,7 @@ export function useChat({
 
   const resumeInterrupt = useCallback(
     (value: any) => {
+      setInterruptBypassed(false); // Clear bypassed flag when properly resolving interrupt
       stream.submit(null, { command: { resume: value }, multitaskStrategy: "interrupt" });
       // Update thread list when resuming from interrupt
       onHistoryRevalidate?.();
@@ -482,6 +494,7 @@ export function useChat({
     isLoading: stream.isLoading,
     isThreadLoading: stream.isThreadLoading,
     interrupt: stream.interrupt,
+    interruptBypassed,
     getMessagesMetadata: stream.getMessagesMetadata,
     sendMessage,
     runSingleStep,

@@ -98,6 +98,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({
     isLoading,
     isThreadLoading,
     interrupt,
+    interruptBypassed,
     sendMessage,
     stopStream,
     resumeInterrupt,
@@ -352,13 +353,15 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({
   }, [interrupt]);
 
   const humanLoopInterrupt = useMemo(() => {
+    // Don't show interrupt if it was bypassed by sending a message
+    if (interruptBypassed) return null;
     const value = interrupt?.value as any;
     if (!value?.type) return null;
     if (['guidance', 'credentials', 'confirmation', 'bash_approval'].includes(value.type)) {
       return value;
     }
     return null;
-  }, [interrupt]);
+  }, [interrupt, interruptBypassed]);
 
   // Detect pending subagent interrupt
   const pendingSubagentInterrupt = useMemo(() => {
