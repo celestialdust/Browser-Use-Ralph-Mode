@@ -12,6 +12,7 @@ A browser automation agent built with [DeepAgents](https://docs.langchain.com/os
 - 🎯 **Subagent Spawning**: Delegate specialized tasks to subagents
 - 🔐 **Selective Approval**: User approval for sensitive browser actions
 - 📺 **Live Streaming**: WebSocket-based browser viewport streaming
+- 📄 **File Presentation**: Present generated files (PDF, DOCX, XLSX, images) to users with preview
 - 🧵 **Multi-threading**: Isolated browser sessions per thread
 - 🧹 **Daemon Lifecycle Management**: Automatic cleanup of stale daemon processes
 
@@ -156,6 +157,11 @@ result = run_ralph_mode(
 - `browser_type` - Type text
 - `browser_press_key` - Press keyboard key
 - `browser_eval` - Execute JavaScript
+
+### File Presentation
+- `present_file` - Present a generated file to the user in the UI
+  - Displays file as a clickable card with preview and download
+  - Supports PDF, DOCX, XLSX, images, Markdown, text, JSON, CSV, HTML
 
 ## Ralph Mode
 

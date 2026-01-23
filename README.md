@@ -66,6 +66,7 @@ Browser Use is a full-stack browser automation agent that can:
 ### File Artifacts
 - **Present Files to User**: Agent can create and present files (PDFs, images, documents)
 - **File Preview Panel**: Side panel for viewing presented files with inline preview
+- **Multi-Format Preview**: Native preview support for PDF, Markdown, images, text, JSON, CSV, HTML, DOCX, and XLSX files
 - **Download Support**: One-click download for all artifact types
 - **Type Detection**: Automatic icon and preview mode based on file type
 
