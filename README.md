@@ -63,10 +63,22 @@ Browser Use is a full-stack browser automation agent that can:
 - **Session Isolation**: Each thread gets its own browser
 - **Live Streaming**: WebSocket viewport streaming
 
+### File Artifacts
+- **Present Files to User**: Agent can create and present files (PDFs, images, documents)
+- **File Preview Panel**: Side panel for viewing presented files with inline preview
+- **Download Support**: One-click download for all artifact types
+- **Type Detection**: Automatic icon and preview mode based on file type
+
+### Subagent Visibility
+- **Real-time Status**: See active subagents spawned by the main agent
+- **Polling-based Updates**: Status refreshes via backend polling
+- **Status Cards**: Visual indicator showing subagent progress
+
 ### Claude-Style UI
 - **Waterfall Thought Process**: Hierarchical, nested display of reasoning
 - **3-Panel Layout**: Resizable threads, chat, and browser panels
 - **Persistent Browser Preview**: Right-side panel with live streaming
+- **File Preview Panel**: Side panel for viewing file artifacts
 - **Clean Design**: Anthropic-inspired minimal color palette
 - **Smooth Animations**: 200ms transitions
 

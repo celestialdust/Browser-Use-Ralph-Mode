@@ -9,7 +9,7 @@ import {
 } from "@langchain/langgraph-sdk";
 import { v4 as uuidv4 } from "uuid";
 import type { UseStreamThread } from "@langchain/langgraph-sdk/react";
-import type { TodoItem, BrowserSession, BrowserCommand, ThoughtProcess, SubagentInterrupt } from "@/app/types/types";
+import type { TodoItem, BrowserSession, BrowserCommand, ThoughtProcess, SubagentInterrupt, PresentedFile, SubagentStatus } from "@/app/types/types";
 import { useClient } from "@/providers/ClientProvider";
 import { useQueryState } from "nuqs";
 import { RECURSION_LIMIT } from "@/lib/config";
@@ -101,6 +101,8 @@ export type StateType = {
   approval_queue?: BrowserCommand[];
   current_thought?: ThoughtProcess | null;
   pending_subagent_interrupts?: SubagentInterrupt[];
+  presented_files?: PresentedFile[];
+  active_subagents?: Record<string, SubagentStatus> | null;  // Polling-based subagent visibility
 };
 
 export function useChat({
@@ -446,13 +448,22 @@ export function useChat({
   const emptyFiles: Record<string, string> = useMemo(() => ({}), []);
   const emptyApprovalQueue: BrowserCommand[] = useMemo(() => [], []);
   const emptySubagentInterrupts: SubagentInterrupt[] = useMemo(() => [], []);
+  const emptyPresentedFiles: PresentedFile[] = useMemo(() => [], []);
+  const emptyActiveSubagents: SubagentStatus[] = useMemo(() => [], []);
 
   const todos = stream.values.todos ?? emptyTodos;
   const files = stream.values.files ?? emptyFiles;
   const approvalQueue = stream.values.approval_queue ?? emptyApprovalQueue;
   const pendingSubagentInterrupts = stream.values.pending_subagent_interrupts ?? emptySubagentInterrupts;
+  const presentedFiles = stream.values.presented_files ?? emptyPresentedFiles;
   const resolvedBrowserSession = browserSession ?? stream.values.browser_session ?? null;
   const currentThought = stream.values.current_thought ?? null;
+  // Convert active_subagents dict to array for easier rendering
+  const activeSubagents: SubagentStatus[] = useMemo(() => {
+    const subagentsDict = stream.values.active_subagents;
+    if (!subagentsDict) return emptyActiveSubagents;
+    return Object.values(subagentsDict);
+  }, [stream.values.active_subagents, emptyActiveSubagents]);
 
   return {
     stream,
@@ -464,6 +475,8 @@ export function useChat({
     approvalQueue,
     currentThought,
     pendingSubagentInterrupts,
+    presentedFiles,
+    activeSubagents,
     setFiles,
     messages: stream.messages,
     isLoading: stream.isLoading,

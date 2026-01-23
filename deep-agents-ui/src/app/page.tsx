@@ -18,6 +18,8 @@ import { ThreadList } from "@/app/components/ThreadList";
 import { ChatProvider, useChatContext } from "@/providers/ChatProvider";
 import { ChatInterface } from "@/app/components/ChatInterface";
 import { BrowserPanel, BrowserPanelContent } from "@/app/components/BrowserPanel";
+import { FilePreviewPanel } from "@/app/components/FilePreviewPanel";
+import type { PresentedFile } from "@/app/types/types";
 
 interface HomePageInnerProps {
   config: StandaloneConfig;
@@ -114,17 +116,36 @@ function ChatWithBrowserPanel({
   config,
   browserPanelExpanded,
   setBrowserPanelExpanded,
-  onBrowserSessionChange
+  onBrowserSessionChange,
+  selectedFile,
+  setSelectedFile,
+  filePanelExpanded,
+  setFilePanelExpanded,
 }: {
   assistant: Assistant | null;
   config: StandaloneConfig;
   browserPanelExpanded: boolean;
   setBrowserPanelExpanded: (value: boolean) => void;
   onBrowserSessionChange: (hasSession: boolean) => void;
+  selectedFile: PresentedFile | null;
+  setSelectedFile: (file: PresentedFile | null) => void;
+  filePanelExpanded: boolean;
+  setFilePanelExpanded: (value: boolean) => void;
 }) {
-  const { browserSession } = useChatContext();
+  const { browserSession, presentedFiles } = useChatContext();
   const previousStreamUrlRef = React.useRef<string | null | undefined>(undefined);
   const previousWasActiveRef = React.useRef<boolean>(false);
+
+  // Handlers for file selection
+  const handleFileSelect = React.useCallback((file: PresentedFile) => {
+    setSelectedFile(file);
+    setFilePanelExpanded(true);
+  }, [setSelectedFile, setFilePanelExpanded]);
+
+  const handleFileClose = React.useCallback(() => {
+    setFilePanelExpanded(false);
+    setSelectedFile(null);
+  }, [setFilePanelExpanded, setSelectedFile]);
 
   // Auto-expand when NEW browser session starts (different streamUrl)
   // Auto-collapse when session ends
@@ -158,22 +179,33 @@ function ChatWithBrowserPanel({
     onBrowserSessionChange(browserSession?.isActive ?? false);
   }, [browserSession?.isActive, onBrowserSessionChange]);
   
+  // Determine default size for chat panel based on which panels are expanded
+  const chatDefaultSize = (() => {
+    if (browserPanelExpanded && filePanelExpanded) return 40;
+    if (browserPanelExpanded || filePanelExpanded) return 65;
+    return 100;
+  })();
+
   return (
     <>
       <ResizablePanel
         id="chat"
         className="relative flex flex-col"
         order={2}
-        defaultSize={browserPanelExpanded ? 65 : 100}
+        defaultSize={chatDefaultSize}
       >
-        <ChatInterface assistant={assistant} />
-        <BrowserPanel 
+        <ChatInterface
+          assistant={assistant}
+          presentedFiles={presentedFiles}
+          onFileSelect={handleFileSelect}
+        />
+        <BrowserPanel
           browserSession={browserSession}
           isExpanded={browserPanelExpanded}
           onToggleExpand={setBrowserPanelExpanded}
         />
       </ResizablePanel>
-      
+
       {/* Show resizable browser panel only when expanded */}
       {browserPanelExpanded && browserSession && (
         <>
@@ -206,6 +238,26 @@ function ChatWithBrowserPanel({
           </ResizablePanel>
         </>
       )}
+
+      {/* Show resizable file preview panel when expanded */}
+      {filePanelExpanded && selectedFile && (
+        <>
+          <ResizableHandle />
+          <ResizablePanel
+            id="file-preview"
+            order={4}
+            defaultSize={35}
+            minSize={20}
+            maxSize={50}
+            className="relative"
+          >
+            <FilePreviewPanel
+              file={selectedFile}
+              onClose={handleFileClose}
+            />
+          </ResizablePanel>
+        </>
+      )}
     </>
   );
 }
@@ -226,6 +278,8 @@ function HomePageInner({
   const [currentThreadTitle, setCurrentThreadTitle] = useState<string | null>(null);
   const [browserPanelExpanded, setBrowserPanelExpanded] = useState(false);
   const [hasBrowserSession, setHasBrowserSession] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<PresentedFile | null>(null);
+  const [filePanelExpanded, setFilePanelExpanded] = useState(false);
 
   const fetchAssistant = useCallback(async () => {
     const isUUID =
@@ -383,12 +437,16 @@ function HomePageInner({
                 </>
               )}
 
-              <ChatWithBrowserPanel 
-                assistant={assistant} 
+              <ChatWithBrowserPanel
+                assistant={assistant}
                 config={config}
                 browserPanelExpanded={browserPanelExpanded}
                 setBrowserPanelExpanded={setBrowserPanelExpanded}
                 onBrowserSessionChange={setHasBrowserSession}
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}
+                filePanelExpanded={filePanelExpanded}
+                setFilePanelExpanded={setFilePanelExpanded}
               />
             </ResizablePanelGroup>
           </ChatProvider>

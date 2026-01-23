@@ -29,6 +29,7 @@ import type {
   ActionRequest,
   ReviewConfig,
   SubagentInterrupt,
+  PresentedFile,
 } from "@/app/types/types";
 import { Assistant, Message } from "@langchain/langgraph-sdk";
 import { extractStringFromMessageContent } from "@/app/utils/utils";
@@ -39,6 +40,8 @@ import { FilesPopover } from "@/app/components/TasksFilesSidebar";
 
 interface ChatInterfaceProps {
   assistant: Assistant | null;
+  presentedFiles?: PresentedFile[];
+  onFileSelect?: (file: PresentedFile) => void;
 }
 
 const getStatusIcon = (status: TodoItem["status"], className?: string) => {
@@ -67,7 +70,11 @@ const getStatusIcon = (status: TodoItem["status"], className?: string) => {
   }
 };
 
-export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
+export const ChatInterface = React.memo<ChatInterfaceProps>(({
+  assistant,
+  presentedFiles,
+  onFileSelect,
+}) => {
   const [metaOpen, setMetaOpen] = useState<"tasks" | "files" | null>(null);
   const tasksContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -98,6 +105,7 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
     currentThought,
     pendingSubagentInterrupts,
     respondToSubagentInterrupt,
+    activeSubagents,
     chatError,
     clearError,
     retryLastMessage,
@@ -378,6 +386,12 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
                   (u: any) => u.metadata?.message_id === data.message.id
                 );
                 const isLastMessage = index === processedMessages.length - 1;
+                // Filter presented files for this message by matching tool_call_id
+                // to any of the message's tool calls (present_file tool call)
+                const messageToolCallIds = new Set(data.toolCalls.map((tc: ToolCall) => tc.id));
+                const messageFiles = presentedFiles?.filter(
+                  (f) => f.tool_call_id && messageToolCallIds.has(f.tool_call_id)
+                );
                 return (
                   <ChatMessage
                     key={data.message.id}
@@ -395,6 +409,9 @@ export const ChatInterface = React.memo<ChatInterfaceProps>(({ assistant }) => {
                     onResumeInterrupt={resumeInterrupt}
                     graphId={assistant?.graph_id}
                     currentThought={isLastMessage ? currentThought : null}
+                    activeSubagents={isLastMessage ? activeSubagents : undefined}
+                    presentedFiles={messageFiles}
+                    onFileSelect={onFileSelect}
                   />
                 );
               })}

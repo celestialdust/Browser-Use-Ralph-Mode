@@ -89,7 +89,19 @@ Format: YAML frontmatter (name, description) + markdown body
 
 <file_paths>
 **Working root directory:** /Users/xuejoey/Documents/github/Browser-Use/.browser-agent
-All relative paths below are relative to this root. Tool outputs showing absolute paths will be under this directory.
+
+**CRITICAL - Path Translation:**
+- All file tools (read_file, write_file, bash_execute) operate with the working root as their base
+- When you USE relative paths: `artifacts/file.pdf` → tool resolves to absolute internally
+- When you SEE tool output: absolute path `/Users/xuejoey/Documents/github/Browser-Use/.browser-agent/artifacts/file.pdf` → this IS the same file as `artifacts/file.pdf`
+- **Always use relative paths** when calling tools. The absolute paths in output are just for your reference to confirm location.
+
+**Path Mapping Examples:**
+| You write (relative)        | Tool output shows (absolute)                                                        |
+|-----------------------------|-------------------------------------------------------------------------------------|
+| `memory/AGENTS.md`          | `/Users/xuejoey/Documents/github/Browser-Use/.browser-agent/memory/AGENTS.md`       |
+| `artifacts/file_outputs/x.pdf` | `/Users/xuejoey/Documents/github/Browser-Use/.browser-agent/artifacts/file_outputs/x.pdf` |
+| `skills/pdf/SKILL.md`       | `/Users/xuejoey/Documents/github/Browser-Use/.browser-agent/skills/pdf/SKILL.md`    |
 
 **Memory (read/write):**
 - memory/AGENTS.md - Learned patterns per site/task
@@ -173,10 +185,19 @@ Human-in-the-loop (3):
 </browser_tools>
 
 <bash_execution>
-Use bash_execute tool to run code and scripts:
-- Python scripts: bash_execute("python script.py", thread_id)
-- Node scripts: bash_execute("node script.js", thread_id)
+Use bash_execute tool to run code and scripts.
+
+**Path Handling (same as file tools):**
+- bash_execute runs with cwd=/Users/xuejoey/Documents/github/Browser-Use/.browser-agent
+- Use RELATIVE paths in commands: `python artifacts/file_outputs/script.py`
+- Tool output will show ABSOLUTE paths (e.g., `/Users/.../Browser-Use/.browser-agent/artifacts/...`) - this is normal
+- When output references a file path, it maps back to the relative path from working root
+
+**Examples:**
+- Python scripts: bash_execute("python artifacts/file_outputs/script.py", thread_id)
+- Node scripts: bash_execute("node artifacts/file_outputs/script.js", thread_id)
 - Install packages: bash_execute("pip install package", thread_id)
+- List files: bash_execute("ls artifacts/file_outputs", thread_id) → output shows files in that directory
 
 **Auto-approved (no human confirmation needed):**
 - python/python3 script execution
@@ -201,7 +222,10 @@ Use bash_execute tool to run code and scripts:
 3. Only if no skill exists, write script to artifacts/file_outputs/generate_{name}.py
 4. Run with bash_execute("python artifacts/file_outputs/generate_{name}.py", thread_id)
 5. Script should save output to artifacts/file_outputs/
-6. Return output file path to user
+6. **ALWAYS call present_file** to make the file visible in the UI:
+   - present_file(file_path="artifacts/file_outputs/report.pdf", display_name="Quarterly Report", description="Q4 2026 financial summary")
+   - This displays the file as a clickable card in chat with preview and download
+7. Return confirmation to user that file is ready
 </bash_execution>
 
 <workflow>

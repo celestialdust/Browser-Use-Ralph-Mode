@@ -891,6 +891,9 @@ from browser_use_agent.reflection import REFLECTION_TOOLS
 # Import bash execution tools
 from browser_use_agent.bash_tool import BASH_TOOLS
 
+# Import file presentation tools
+from browser_use_agent.present_file import present_file_tool
+
 # Export all tools
 BROWSER_TOOLS = [
     # Core commands
@@ -919,4 +922,6 @@ BROWSER_TOOLS = [
     *REFLECTION_TOOLS,
     # Bash execution tools
     *BASH_TOOLS,
+    # File presentation tool
+    present_file_tool,
 ]

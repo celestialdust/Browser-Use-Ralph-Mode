@@ -11,6 +11,7 @@ from browser_use_agent.prompts import get_system_prompt, RALPH_MODE_REFLECTION_P
 from browser_use_agent.state import AgentState, create_initial_state
 from browser_use_agent.tools import BROWSER_TOOLS
 from browser_use_agent.storage import get_checkpoint_saver, StorageConfig
+from browser_use_agent.middleware import PresentedFilesMiddleware
 
 
 def _load_context_files(agent_dir) -> str:
@@ -159,6 +160,7 @@ def create_browser_agent(
         tools=tools,
         backend=filesystem_backend,  # Configure custom filesystem backend
         checkpointer=checkpointer,
+        middleware=[PresentedFilesMiddleware()],  # Custom middleware for presented_files state
         **kwargs
     )
 

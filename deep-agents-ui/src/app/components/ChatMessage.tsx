@@ -2,16 +2,20 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import { SubAgentIndicator } from "@/app/components/SubAgentIndicator";
+import { SubagentStatusCard } from "@/app/components/SubagentStatusCard";
 import { ToolCallBox } from "@/app/components/ToolCallBox";
 import { MarkdownContent } from "@/app/components/MarkdownContent";
 import { ThoughtProcess } from "@/app/components/ThoughtProcess";
 import { ReasoningDisplay } from "@/app/components/ReasoningDisplay";
+import { FileCard } from "@/app/components/FileCard";
 import type {
   SubAgent,
   ToolCall,
   ActionRequest,
   ReviewConfig,
   ThoughtProcess as ThoughtProcessType,
+  SubagentStatus,
+  PresentedFile,
 } from "@/app/types/types";
 import { Message } from "@langchain/langgraph-sdk";
 import {
@@ -31,6 +35,9 @@ interface ChatMessageProps {
   onResumeInterrupt?: (value: any) => void;
   graphId?: string;
   currentThought?: ThoughtProcessType | null;
+  activeSubagents?: SubagentStatus[];
+  presentedFiles?: PresentedFile[];
+  onFileSelect?: (file: PresentedFile) => void;
 }
 
 /**
@@ -70,6 +77,9 @@ export const ChatMessage = React.memo<ChatMessageProps>(
     onResumeInterrupt,
     graphId,
     currentThought,
+    activeSubagents,
+    presentedFiles,
+    onFileSelect,
   }) => {
     const isUser = message.type === "human";
     const messageContent = extractStringFromMessageContent(message);
@@ -310,6 +320,31 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                     </div>
                   )}
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* Active subagent status (polling-based visibility) */}
+          {!isUser && activeSubagents && activeSubagents.length > 0 && (
+            <div className="mt-2">
+              {activeSubagents.map((subagent) => (
+                <SubagentStatusCard
+                  key={subagent.subagent_id}
+                  subagent={subagent}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Presented files (file artifacts) */}
+          {!isUser && presentedFiles && presentedFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {presentedFiles.map((file) => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  onClick={() => onFileSelect?.(file)}
+                />
               ))}
             </div>
           )}

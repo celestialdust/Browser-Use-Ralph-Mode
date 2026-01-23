@@ -1,6 +1,6 @@
 """State definitions for browser automation agent."""
 
-from typing import TypedDict, List, Dict, Optional, Any
+from typing import TypedDict, List, Dict, Optional, Any, Literal
 from langchain_core.messages import BaseMessage
 
 
@@ -45,6 +45,38 @@ class SubagentInterrupt(TypedDict, total=False):
     status: str                # pending, responded, resumed
 
 
+class SubagentStatus(TypedDict, total=False):
+    """Status of a running or completed subagent.
+
+    Used for polling-based subagent visibility in the UI.
+    """
+    subagent_id: str                                                    # Unique subagent identifier
+    subagent_type: str                                                  # Type of subagent (e.g., "research", "browser")
+    prompt: str                                                         # The prompt given to the subagent
+    status: Literal["pending", "running", "completed", "error", "cancelled"]  # Current status
+    started_at: str                                                     # ISO timestamp when started
+    completed_at: Optional[str]                                         # ISO timestamp when completed
+    tool_calls_count: int                                               # Number of tool calls made
+    last_activity: Optional[str]                                        # Brief description of current action
+    result_summary: Optional[str]                                       # First 200 chars of result
+    error: Optional[str]                                                # Error message if status is "error"
+
+
+class PresentedFile(TypedDict):
+    """A file presented to the user in the chat UI.
+
+    Created when the agent calls present_file tool to show a file artifact.
+    """
+    id: str                     # Unique file ID
+    file_path: str              # Relative path within .browser-agent directory
+    display_name: str           # Human-readable name shown in UI
+    description: Optional[str]  # Optional description of file contents
+    file_type: str              # File type (PDF, DOCX, Markdown, etc.)
+    file_size: int              # File size in bytes
+    presented_at: str           # ISO timestamp when presented
+    message_id: Optional[str]   # Associated message ID (if any)
+
+
 class AgentState(TypedDict, total=False):
     """State for the browser automation agent."""
     messages: List[BaseMessage]
@@ -55,6 +87,8 @@ class AgentState(TypedDict, total=False):
     current_thought: Optional[ThoughtProcess]
     thread_id: str
     pending_subagent_interrupts: List[SubagentInterrupt]
+    active_subagents: Optional[Dict[str, SubagentStatus]]  # Polling-based subagent visibility
+    presented_files: Optional[List[PresentedFile]]  # File artifacts presented to user
 
 
 def create_initial_state(thread_id: str) -> AgentState:
@@ -75,4 +109,6 @@ def create_initial_state(thread_id: str) -> AgentState:
         "current_thought": None,
         "thread_id": thread_id,
         "pending_subagent_interrupts": [],
+        "active_subagents": None,
+        "presented_files": [],
     }

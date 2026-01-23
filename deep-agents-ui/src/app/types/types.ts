@@ -106,3 +106,31 @@ export interface SubagentInterrupt {
   created_at: number;
   status: "pending" | "responded" | "resumed";
 }
+
+export interface PresentedFile {
+  id: string;
+  file_path: string;
+  display_name: string;
+  description?: string;
+  file_type: string;
+  file_size: number;
+  presented_at: string;
+  tool_call_id?: string;
+}
+
+/**
+ * Status of a running or completed subagent.
+ * Used for polling-based subagent visibility in the UI.
+ */
+export interface SubagentStatus {
+  subagent_id: string;
+  subagent_type: string;
+  prompt: string;
+  status: "pending" | "running" | "completed" | "error" | "cancelled";
+  started_at: string;
+  completed_at?: string;
+  tool_calls_count: number;
+  last_activity?: string;
+  result_summary?: string;
+  error?: string;
+}
