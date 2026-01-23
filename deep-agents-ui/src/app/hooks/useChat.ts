@@ -306,7 +306,7 @@ export function useChat({
       // Update thread list immediately when sending a message
       onHistoryRevalidate?.();
     },
-    [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit, stream.interrupt]
+    [stream, activeAssistant?.config, onHistoryRevalidate, recursionLimit]
   );
 
   const clearError = useCallback(() => {
