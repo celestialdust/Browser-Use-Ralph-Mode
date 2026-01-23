@@ -132,7 +132,7 @@ function ChatWithBrowserPanel({
   filePanelExpanded: boolean;
   setFilePanelExpanded: (value: boolean) => void;
 }) {
-  const { browserSession, presentedFiles } = useChatContext();
+  const { browserSession, presentedFiles, clearBrowserSession } = useChatContext();
   const previousStreamUrlRef = React.useRef<string | null | undefined>(undefined);
   const previousWasActiveRef = React.useRef<boolean>(false);
 
@@ -146,6 +146,13 @@ function ChatWithBrowserPanel({
     setFilePanelExpanded(false);
     setSelectedFile(null);
   }, [setFilePanelExpanded, setSelectedFile]);
+
+  // Handle browser panel errors - clear session and collapse panel
+  const handleBrowserError = React.useCallback(() => {
+    console.log("[ChatWithBrowserPanel] Browser error, clearing session and collapsing panel");
+    clearBrowserSession();
+    setBrowserPanelExpanded(false);
+  }, [clearBrowserSession, setBrowserPanelExpanded]);
 
   // Auto-expand when NEW browser session starts (different streamUrl)
   // Auto-collapse when session ends
@@ -232,7 +239,7 @@ function ChatWithBrowserPanel({
                 </div>
               </div>
               <div className="flex-1 overflow-auto">
-                <BrowserPanelContent browserSession={browserSession} />
+                <BrowserPanelContent browserSession={browserSession} onError={handleBrowserError} />
               </div>
             </div>
           </ResizablePanel>

@@ -74,7 +74,13 @@ function getConnectionStatusMessage(
 }
 
 // Separate component for expanded browser panel content
-export function BrowserPanelContent({ browserSession }: { browserSession: BrowserSession | null }) {
+export function BrowserPanelContent({
+  browserSession,
+  onError
+}: {
+  browserSession: BrowserSession | null;
+  onError?: () => void;
+}) {
   const [imageSrc, setImageSrc] = useState<string>("");
   const [connectionStatus, setConnectionStatus] = useState<{
     connected: boolean;
@@ -232,6 +238,8 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
                 "Unable to connect to browser stream. The browser session may have ended. Start a new browser task to continue."
               );
             }
+            // Notify parent to clear browser session and collapse panel
+            onError?.();
           }
           return currentAttempts;
         });
@@ -240,7 +248,7 @@ export function BrowserPanelContent({ browserSession }: { browserSession: Browse
       console.error("[BrowserPanel] Failed to create WebSocket:", error);
       setIsConnecting(false);
     }
-  }, []);
+  }, [onError]);
 
   useEffect(() => {
     if (!streamUrl || !isActive) {

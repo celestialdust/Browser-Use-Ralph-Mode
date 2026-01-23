@@ -405,6 +405,25 @@ export function useChat({
     stream.stop();
   }, [stream]);
 
+  // Clear browser session (used when errors occur in browser panel)
+  // Also cleans up the backend state to prevent stale sessions
+  const clearBrowserSession = useCallback(async () => {
+    console.log("[useChat] Clearing browser session due to error");
+    setBrowserSession(null);
+
+    // Also clear the backend session state if we have a thread
+    if (threadId && client) {
+      try {
+        await client.threads.updateState(threadId, {
+          values: { browser_session: null }
+        });
+        console.log("[useChat] Backend browser session cleared");
+      } catch (error) {
+        console.error("[useChat] Failed to clear backend browser session:", error);
+      }
+    }
+  }, [threadId, client]);
+
   // Respond to a subagent interrupt by updating state and continuing the stream
   const respondToSubagentInterrupt = useCallback(
     async (interruptId: string, response: any) => {
@@ -506,6 +525,7 @@ export function useChat({
     runSingleStep,
     continueStream,
     stopStream,
+    clearBrowserSession,
     markCurrentThreadAsResolved,
     resumeInterrupt,
     respondToSubagentInterrupt,
