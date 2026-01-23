@@ -7,6 +7,7 @@ A browser automation agent built with [DeepAgents](https://docs.langchain.com/os
 - 🤖 **DeepAgents Integration**: Built on LangChain's DeepAgents framework
 - 🔄 **Ralph Mode**: Iterative refinement and self-correction
 - 🌐 **Browser Automation**: Full browser control via `agent-browser` CLI
+- ☁️ **Browserbase Support**: Cloud browser infrastructure for serverless deployments
 - 📊 **Planning & Decomposition**: Built-in task breakdown with `write_todos`
 - 💾 **Context Management**: File system tools for large context handling
 - 🎯 **Subagent Spawning**: Delegate specialized tasks to subagents
@@ -264,8 +265,32 @@ mypy browser_use_agent/
 | `DEPLOYMENT_NAME` | Model deployment name | `gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
 | `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
+| `BROWSERBASE_API_KEY` | Browserbase API key | *Optional* |
+| `BROWSERBASE_PROJECT_ID` | Browserbase project ID | *Optional* |
 | `USE_CDP` | Use Chrome DevTools Protocol | `false` |
 | `CDP_PORT` | CDP port (when USE_CDP=true) | `9222` |
+
+### Browserbase (Cloud Browser)
+
+[Browserbase](https://browserbase.com/) provides cloud browser infrastructure for running the agent in serverless environments where a local browser isn't available.
+
+**Setup:**
+
+1. Get your API key and project ID from the [Browserbase Dashboard](https://browserbase.com/overview)
+
+2. Add to your `.env` file:
+```env
+BROWSERBASE_API_KEY=your-api-key
+BROWSERBASE_PROJECT_ID=your-project-id
+```
+
+When both variables are set, `agent-browser` automatically connects to a Browserbase session instead of launching a local browser. All commands work identically.
+
+**When to use Browserbase:**
+- Serverless deployments (Vercel, AWS Lambda, etc.)
+- CI/CD pipelines
+- Environments without browser access
+- Scaling browser automation workloads
 
 ### CDP Mode (Chrome DevTools Protocol)
 
@@ -326,6 +351,7 @@ This error occurs when `agent-browser` cannot start its daemon process, usually 
 
 - [DeepAgents Documentation](https://docs.langchain.com/oss/python/deepagents/overview)
 - [agent-browser Documentation](https://agent-browser.dev/)
+- [Browserbase Documentation](https://docs.browserbase.com/)
 - [LangChain Documentation](https://docs.langchain.com/)
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
 
