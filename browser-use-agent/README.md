@@ -56,7 +56,7 @@ browser-use-agent/
 
 - Python 3.11+
 - Node.js (for `agent-browser` CLI)
-- Azure OpenAI API access
+- OpenAI API access (or Azure OpenAI - deprecated)
 
 ### Setup
 
@@ -78,13 +78,25 @@ uv pip install -e .
 ```
 
 4. **Configure environment variables**:
-Create a `.env` file in the `browser-use-agent/` directory:
+Copy `.env.example` to `.env` and fill in your credentials:
+```bash
+cp .env.example .env
+```
+
+**OpenAI (Recommended):**
 ```env
+USE_AZURE=false
+OPENAI_API_KEY="your-openai-api-key"
+OPENAI_MODEL="gpt-5"
+TEMPERATURE="1.0"
+```
+
+**Azure OpenAI (Deprecated):**
+```env
+USE_AZURE=true
 AZURE_OPENAI_ENDPOINT="https://your-endpoint.openai.azure.com/"
 AZURE_OPENAI_API_KEY="your-api-key"
-OPENAI_API_VERSION="2024-02-15-preview"
 DEPLOYMENT_NAME="gpt-5"
-TEMPERATURE="1.0"
 ```
 
 ## Usage
@@ -143,21 +155,30 @@ result = run_ralph_mode(
 
 ## Browser Tools
 
-### Auto-Approved (Read-Only)
-- `browser_snapshot` - Get page structure with interactive elements
-- `browser_screenshot` - Capture page screenshot
-- `browser_get_info` - Get element information
-- `browser_get_url` - Get current URL
-- `browser_get_title` - Get page title
-- `browser_is_visible` / `browser_is_enabled` - Check element states
+All browser tools run in an isolated sandbox and are **auto-approved** (no user approval required):
 
-### Requires Approval (Actions)
+### Navigation
 - `browser_navigate` - Navigate to URL
+- `browser_back` / `browser_forward` - Navigate history
+- `browser_reload` - Reload page
+
+### Interaction
 - `browser_click` - Click an element
 - `browser_fill` - Fill input field
 - `browser_type` - Type text
 - `browser_press_key` - Press keyboard key
+
+### Observation
+- `browser_snapshot` - Get page structure with interactive elements
+- `browser_screenshot` - Capture page screenshot
+- `browser_get_info` - Get element information
+- `browser_console` - Get console logs
+- `browser_is_visible` / `browser_is_enabled` / `browser_is_checked` - Check element states
+
+### Advanced
 - `browser_eval` - Execute JavaScript
+- `browser_wait` - Wait for condition
+- `browser_close` - Close browser session
 
 ### File Presentation
 - `present_file` - Present a generated file to the user in the UI
@@ -259,14 +280,18 @@ mypy browser_use_agent/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | *Required* |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | *Required* |
-| `OPENAI_API_VERSION` | API version | `2024-02-15-preview` |
-| `DEPLOYMENT_NAME` | Model deployment name | `gpt-5` |
+| `USE_AZURE` | Use Azure OpenAI (deprecated) | `true` |
+| `OPENAI_API_KEY` | OpenAI API key (when USE_AZURE=false) | - |
+| `OPENAI_MODEL` | OpenAI model name | `gpt-5` |
+| `AZURE_OPENAI_ENDPOINT` | Azure endpoint (deprecated) | - |
+| `AZURE_OPENAI_API_KEY` | Azure API key (deprecated) | - |
+| `DEPLOYMENT_NAME` | Azure deployment name | `gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
+| `REASONING_ENABLED` | Enable reasoning API | `true` |
+| `REASONING_EFFORT` | Reasoning effort level | `medium` |
 | `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
-| `BROWSERBASE_API_KEY` | Browserbase API key | *Optional* |
-| `BROWSERBASE_PROJECT_ID` | Browserbase project ID | *Optional* |
+| `BROWSERBASE_API_KEY` | Browserbase API key (cloud browser) | - |
+| `BROWSERBASE_PROJECT_ID` | Browserbase project ID | - |
 | `USE_CDP` | Use Chrome DevTools Protocol | `false` |
 | `CDP_PORT` | CDP port (when USE_CDP=true) | `9222` |
 

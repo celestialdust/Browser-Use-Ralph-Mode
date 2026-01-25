@@ -66,6 +66,7 @@ Browser Use is a full-stack browser automation agent that can:
 - **Element Refs**: Clean `@e1` syntax for interactions
 - **Session Isolation**: Each thread gets its own browser
 - **Live Streaming**: WebSocket viewport streaming
+- **Browserbase Support**: Cloud browser infrastructure for anti-detection and serverless deployments
 
 ### File Artifacts
 - **Present Files to User**: Agent can create and present files (PDFs, images, documents)
@@ -87,14 +88,17 @@ Browser Use is a full-stack browser automation agent that can:
 - **Clean Design**: Anthropic-inspired minimal color palette
 - **Smooth Animations**: 200ms transitions
 
-### Selective Approval
-**Auto-approved (read-only)**:
-- `browser_snapshot`, `browser_screenshot`, `browser_get_info`
-- `browser_is_visible`, `browser_is_enabled`
+### Sandboxed Browser Execution
+All browser tools run in an isolated browser sandbox, so **no approval is required** for browser actions. The agent can freely navigate, click, fill forms, and execute JavaScript.
 
-**Require approval (actions)**:
-- `browser_navigate`, `browser_click`, `browser_fill`
-- `browser_type`, `browser_press_key`, `browser_eval`
+**Auto-approved browser tools**:
+- Navigation: `browser_navigate`, `browser_back`, `browser_forward`, `browser_reload`
+- Interaction: `browser_click`, `browser_fill`, `browser_type`, `browser_press_key`
+- Observation: `browser_snapshot`, `browser_screenshot`, `browser_get_info`, `browser_console`
+- State: `browser_is_visible`, `browser_is_enabled`, `browser_is_checked`, `browser_wait`
+- Advanced: `browser_eval` (JavaScript execution), `browser_close`
+
+**Bash commands** use a tiered approval system (auto-approve safe commands, block dangerous ones).
 
 ## Quick Start
 
@@ -102,7 +106,7 @@ Browser Use is a full-stack browser automation agent that can:
 
 - **Python 3.11+** with `uv` or `pip`
 - **Node.js 18+** with `yarn` or `npm`
-- **Azure OpenAI** API access with GPT-4/5 deployment
+- **OpenAI API** access (or Azure OpenAI - deprecated)
 - **agent-browser**: `npm install -g agent-browser`
 
 ### 1. Clone Repository
@@ -126,11 +130,20 @@ uv pip install -e .
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your Azure OpenAI credentials
+# Edit .env with your API credentials
 ```
 
-**`.env` configuration**:
+**`.env` configuration (OpenAI - Recommended)**:
 ```env
+USE_AZURE=false
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-5
+TEMPERATURE=1.0
+```
+
+**`.env` configuration (Azure OpenAI - Deprecated)**:
+```env
+USE_AZURE=true
 AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
 AZURE_OPENAI_API_KEY=your-api-key-here
 OPENAI_API_VERSION=2025-01-01-preview
@@ -176,12 +189,20 @@ Navigate to http://localhost:3000 and start chatting!
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | *Required* |
-| `AZURE_OPENAI_API_KEY` | API key | *Required* |
-| `OPENAI_API_VERSION` | API version | `2025-01-01-preview` |
-| `DEPLOYMENT_NAME` | Model deployment name | `gsds-gpt-5` |
+| `USE_AZURE` | Use Azure OpenAI (deprecated) | `true` |
+| `OPENAI_API_KEY` | OpenAI API key (when USE_AZURE=false) | - |
+| `OPENAI_MODEL` | OpenAI model name | `gpt-5` |
+| `AZURE_OPENAI_ENDPOINT` | Azure endpoint (deprecated) | - |
+| `AZURE_OPENAI_API_KEY` | Azure API key (deprecated) | - |
+| `DEPLOYMENT_NAME` | Azure deployment name | `gsds-gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
+| `REASONING_ENABLED` | Enable reasoning API | `true` |
+| `REASONING_EFFORT` | Reasoning effort level | `medium` |
 | `AGENT_BROWSER_STREAM_PORT` | Base WebSocket port | `9223` |
+| `USE_CDP` | Connect to existing Chrome | `false` |
+| `CDP_PORT` | Chrome DevTools port | `9222` |
+| `BROWSERBASE_API_KEY` | Browserbase API key (for cloud browser) | - |
+| `BROWSERBASE_PROJECT_ID` | Browserbase project ID | - |
 
 ### Frontend Configuration
 
@@ -375,24 +396,25 @@ browser_agent.py (Graph Definition)
     │
     ├── Tools
     │   ├── BROWSER_TOOLS (tools.py)
-    │   │   ├── browser_navigate
-    │   │   ├── browser_click
-    │   │   ├── browser_fill
-    │   │   ├── browser_snapshot
-    │   │   └── ... (30+ tools)
+    │   │   ├── browser_navigate, browser_back, browser_forward, browser_reload
+    │   │   ├── browser_click, browser_fill, browser_type, browser_press_key
+    │   │   ├── browser_snapshot, browser_screenshot, browser_console
+    │   │   ├── browser_is_visible, browser_is_enabled, browser_is_checked
+    │   │   └── browser_wait, browser_eval, browser_close, browser_get_info
     │   │
     │   ├── BASH_TOOLS (bash_tool.py)
     │   │   └── bash_execute (with security tiers)
     │   │
     │   ├── HUMAN_TOOLS (human_loop.py)
-    │   │   ├── request_guidance
+    │   │   ├── request_human_guidance
     │   │   ├── request_credentials
     │   │   └── request_confirmation
     │   │
-    │   └── REFLECTION_TOOLS (reflection.py)
-    │       ├── read_memory
-    │       ├── update_agents_file
-    │       └── update_user_preferences
+    │   ├── REFLECTION_TOOLS (reflection.py)
+    │   │   └── reflect_on_session
+    │   │
+    │   └── present_file (present_file.py)
+    │       └── Present generated files to user
     │
     └── State (state.py)
         ├── messages: BaseMessage[]
@@ -400,7 +422,9 @@ browser_agent.py (Graph Definition)
         ├── files: dict
         ├── browser_session: BrowserSession
         ├── current_thought: ThoughtProcess
-        └── approval_queue: ApprovalRequest[]
+        ├── presented_files: List[PresentedFile]
+        ├── active_subagents: Dict[str, SubagentStatus]
+        └── pending_subagent_interrupts: List[SubagentInterrupt]
 ```
 
 ### Filesystem Architecture
