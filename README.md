@@ -7,6 +7,10 @@ A complete browser automation system combining [LangChain DeepAgents](https://do
 ![Node 18+](https://img.shields.io/badge/Node-18+-green)
 ![License MIT](https://img.shields.io/badge/License-MIT-lightgrey)
 
+
+https://github.com/user-attachments/assets/a6bf9e61-bd63-4d33-b7fe-9f57f4745740
+
+
 ## Overview
 
 Browser Use is a full-stack browser automation agent that can:
