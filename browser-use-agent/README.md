@@ -56,7 +56,7 @@ browser-use-agent/
 
 - Python 3.11+
 - Node.js (for `agent-browser` CLI)
-- OpenAI API access (or Azure OpenAI - deprecated)
+- OpenAI API or Azure OpenAI access
 
 ### Setup
 
@@ -83,7 +83,7 @@ Copy `.env.example` to `.env` and fill in your credentials:
 cp .env.example .env
 ```
 
-**OpenAI (Recommended):**
+**OpenAI:**
 ```env
 USE_AZURE=false
 OPENAI_API_KEY="your-openai-api-key"
@@ -91,7 +91,7 @@ OPENAI_MODEL="gpt-5"
 TEMPERATURE="1.0"
 ```
 
-**Azure OpenAI (Deprecated):**
+**Azure OpenAI:**
 ```env
 USE_AZURE=true
 AZURE_OPENAI_ENDPOINT="https://your-endpoint.openai.azure.com/"
@@ -280,11 +280,11 @@ mypy browser_use_agent/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `USE_AZURE` | Use Azure OpenAI (deprecated) | `true` |
+| `USE_AZURE` | Use Azure OpenAI | `true` |
 | `OPENAI_API_KEY` | OpenAI API key (when USE_AZURE=false) | - |
 | `OPENAI_MODEL` | OpenAI model name | `gpt-5` |
-| `AZURE_OPENAI_ENDPOINT` | Azure endpoint (deprecated) | - |
-| `AZURE_OPENAI_API_KEY` | Azure API key (deprecated) | - |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint | - |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | - |
 | `DEPLOYMENT_NAME` | Azure deployment name | `gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
 | `REASONING_ENABLED` | Enable reasoning API | `true` |

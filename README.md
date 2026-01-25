@@ -106,7 +106,7 @@ All browser tools run in an isolated browser sandbox, so **no approval is requir
 
 - **Python 3.11+** with `uv` or `pip`
 - **Node.js 18+** with `yarn` or `npm`
-- **OpenAI API** access (or Azure OpenAI - deprecated)
+- **OpenAI API** or **Azure OpenAI** access
 - **agent-browser**: `npm install -g agent-browser`
 
 ### 1. Clone Repository
@@ -133,7 +133,7 @@ cp .env.example .env
 # Edit .env with your API credentials
 ```
 
-**`.env` configuration (OpenAI - Recommended)**:
+**`.env` configuration (OpenAI)**:
 ```env
 USE_AZURE=false
 OPENAI_API_KEY=your-openai-api-key
@@ -141,7 +141,7 @@ OPENAI_MODEL=gpt-5
 TEMPERATURE=1.0
 ```
 
-**`.env` configuration (Azure OpenAI - Deprecated)**:
+**`.env` configuration (Azure OpenAI)**:
 ```env
 USE_AZURE=true
 AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
@@ -189,11 +189,11 @@ Navigate to http://localhost:3000 and start chatting!
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `USE_AZURE` | Use Azure OpenAI (deprecated) | `true` |
+| `USE_AZURE` | Use Azure OpenAI | `true` |
 | `OPENAI_API_KEY` | OpenAI API key (when USE_AZURE=false) | - |
 | `OPENAI_MODEL` | OpenAI model name | `gpt-5` |
-| `AZURE_OPENAI_ENDPOINT` | Azure endpoint (deprecated) | - |
-| `AZURE_OPENAI_API_KEY` | Azure API key (deprecated) | - |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint | - |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | - |
 | `DEPLOYMENT_NAME` | Azure deployment name | `gsds-gpt-5` |
 | `TEMPERATURE` | Model temperature | `1.0` |
 | `REASONING_ENABLED` | Enable reasoning API | `true` |
