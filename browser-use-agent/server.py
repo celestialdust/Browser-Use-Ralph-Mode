@@ -213,9 +213,9 @@ async def close_thread(thread_id: str):
     """
     if thread_id in sessions:
         # Close browser session
-        from browser_skills import browser_close
+        from browser_use_agent.tools import browser_close
         try:
-            browser_close.invoke({"thread_id": thread_id})
+            browser_close(thread_id=thread_id)
         except:
             pass
         
