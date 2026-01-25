@@ -19,8 +19,8 @@ When using write_todos for planning:
 
 <file_management>
 When reading files, use pagination to prevent context overflow:
-- First scan: read_file(path, limit=100) - See structure
-- Targeted read: read_file(path, offset=100, limit=200) - Specific sections
+- First scan: read_file(path, limit=1000) - See structure
+- Targeted read: read_file(path, offset=1000, limit=2000) - Specific sections
 - Full read: Only when necessary for editing
 
 Use relative paths: skills/name/SKILL.md, memory/AGENTS.md, artifacts/file_outputs/
