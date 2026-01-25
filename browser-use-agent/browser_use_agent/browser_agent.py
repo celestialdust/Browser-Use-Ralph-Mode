@@ -138,7 +138,7 @@ def create_browser_agent(
     # Get checkpoint saver if not provided
     if checkpointer is None:
         # Note: get_checkpoint_saver is async, but create_deep_agent expects sync
-        # We'll handle async initialization separately in server.py
+        # Use init_checkpoint_db() for async initialization before calling this function
         print("[Agent] Using in-memory checkpointer (call init_checkpoint_db() for persistence)")
         checkpointer = None  # Will use InMemorySaver by default
 

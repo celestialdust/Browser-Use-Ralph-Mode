@@ -34,7 +34,6 @@ browser-use-agent/
 │   │   └── loader.py         # Load skills from .browser-agent/skills/
 │   └── utils.py              # Utility functions (StreamManager)
 ├── agent.py                   # CLI entry point
-├── server.py                  # FastAPI server with skills API
 ├── langgraph.json            # LangGraph configuration
 ├── pyproject.toml            # Project configuration
 └── .env                      # Environment variables (not committed)

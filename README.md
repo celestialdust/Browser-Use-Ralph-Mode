@@ -626,7 +626,6 @@ Browser-Use/
 │   │   ├── skills/           # Skill loader
 │   │   └── utils.py          # StreamManager
 │   ├── agent.py              # CLI entry point
-│   ├── server.py             # Optional FastAPI wrapper + skills API
 │   └── langgraph.json        # LangGraph config
 │
 ├── deep-agents-ui/            # Next.js Frontend
