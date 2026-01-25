@@ -7,7 +7,7 @@ from typing import Optional, Dict, List, Any
 import asyncio
 import uuid
 from agent import create_agent_state
-from stream_manager import stream_manager
+from browser_use_agent.utils import stream_manager
 from browser_use_agent.browser_agent import create_browser_agent
 from browser_use_agent.storage import init_checkpoint_db
 from browser_use_agent.skills.loader import SkillLoader
